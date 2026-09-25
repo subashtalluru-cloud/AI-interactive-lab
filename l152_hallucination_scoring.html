@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why models guess — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:77">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 136, 152 · Lab L152.1</span></p>
+</div></header>
+<main>
+<h1>Why models guess, and how scoring changes it</h1>
+<p class="lede">A model knows the answers to some questions and is unsure about the rest. If a wrong answer costs nothing, guessing always scores at least as well as saying “I don’t know”. Set the scoring rule and see which behaviour wins.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="k">Questions the model knows (of 100) <span class="val" id="kV"></span></label><input type="range" id="k" min="0" max="100" step="1" value="70"></div>
+    <div class="control"><label for="g">Chance a guess is right <span class="val" id="gV"></span></label><input type="range" id="g" min="0" max="1" step="0.01" value="0.2"></div>
+    <div class="control"><label for="pen">Penalty per wrong answer <span class="val" id="penV"></span></label><input type="range" id="pen" min="0" max="4" step="0.25" value="0"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 230" role="img" aria-labelledby="pT"><title id="pT">Scores of the two strategies</title></svg>
+  <figcaption>Each bar is split into points earned (green) and points lost to wrong answers (crimson).</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">With no penalty, always guessing scores 76 against 70 for abstaining — and produces 24 confident errors. A penalty of 1 per wrong answer flips it: 52 against 70.</p>
+<p class="note">The break-even point is simple: guessing pays only when the chance of being right exceeds penalty ÷ (1 + penalty). With penalty 1 that is 50%; with penalty 3 it is 75%. A model optimized against a benchmark that never penalizes errors is being trained to bluff. In clinical use a confident wrong answer usually costs far more than “I don’t know — check the formulary” (Chapters 136, 148, 152).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const k = +$("k").value, g = +$("g").value, pen = +$("pen").value, u = 100 - k;
+  $("kV").textContent = k; $("gV").textContent = (g * 100).toFixed(0) + "%"; $("penV").textContent = pen.toFixed(2);
+  const right1 = k + g * u, wrong1 = (1 - g) * u, s1 = right1 - pen * wrong1, s2 = k;
+  const X = v => 200 + v * 4.6;
+  const bar = (y, lab, right, wrong, score, col) =>
+    `<text x="190" y="${y + 22}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="13" fill="#0f1626">${lab}</text>
+     <rect x="${X(0)}" y="${y}" width="${right * 4.6}" height="34" fill="#0e8f6e" fill-opacity="0.75"/>
+     <rect x="${X(right - pen * wrong)}" y="${y + 8}" width="${pen * wrong * 4.6}" height="18" fill="#d6215a" fill-opacity="0.7"/>
+     <text x="${X(Math.max(right, 0)) + 8}" y="${y + 22}" font-family="ui-sans-serif,system-ui" font-size="13" font-weight="700" fill="${col}">${score.toFixed(1)}</text>`;
+  $("plot").innerHTML = `<title id="pT">Scores</title><line x1="${X(0)}" y1="20" x2="${X(0)}" y2="200" stroke="#b8c0cf"/>` +
+    bar(40, "Always guess", right1, wrong1, s1, s1 > s2 ? "#0e8f6e" : "#d6215a") +
+    bar(120, "Abstain when unsure", k, 0, s2, s2 >= s1 ? "#0e8f6e" : "#d6215a");
+  const be = pen / (1 + pen);
+  $("out").textContent =
+    `always guess:   ${k} + ${g.toFixed(2)}×${u} = ${right1.toFixed(1)} right, ${wrong1.toFixed(1)} wrong → ${right1.toFixed(1)} − ${pen}×${wrong1.toFixed(1)} = ${s1.toFixed(1)}\n` +
+    `abstain:        ${k} right, 0 wrong → ${s2}\n` +
+    `winner: ${s1 > s2 + 1e-9 ? "GUESSING" : s1 < s2 - 1e-9 ? "ABSTAINING" : "tie"}   (guessing pays only if the chance of a right guess > ${(be * 100).toFixed(0)}%)`;
+}
+["k", "g", "pen"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

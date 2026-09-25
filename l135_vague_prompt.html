@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Counting the choices a vague prompt leaves open — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:75">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 135, 136 · Lab L135.1</span></p>
+</div></header>
+<main>
+<h1>Counting the choices a vague prompt leaves open</h1>
+<p class="lede">“Write about glaucoma for patients” leaves many decisions unstated. Each one the model resolves toward what is typical in its training. Tick the choices you specify and watch the space of acceptable-looking answers shrink.</p>
+<div class="panel"><div class="controls" id="dims"></div></div>
+<p class="readout" id="out"></p>
+<p id="spec" style="font-family:var(--mono);font-size:.9rem;background:var(--bench);padding:.7rem;border-radius:8px"></p>
+<h2>What to notice</h2>
+<p class="finding">3 × 3 × 3 × 4 × 3 × 3 × 2 = 1,944 broadly different answers, all “about glaucoma for patients” (Math Box 135.1).</p>
+<p class="note">Specify five of the seven and the space collapses to a handful. The model is not being lazy when it produces a middle-length, general, mildly reassuring leaflet — it is filling your unstated choices with the most probable defaults. Specification is what makes the answer yours (Chapters 135–136).</p>
+<script>
+const $ = id => document.getElementById(id);
+const D = [["Audience", ["newly diagnosed", "long-standing", "family members"]], ["Reading level", ["simple", "moderate", "detailed"]], ["Length", ["short leaflet", "one page", "article"]], ["Emphasis", ["what it is", "treatment", "living with it", "all"]], ["Tone", ["reassuring", "neutral", "urgent"]], ["Format", ["prose", "Q&A", "bullets"]], ["Language", ["English", "Telugu"]]];
+function build() { $("dims").innerHTML = D.map(([n, o], i) => `<div class="control"><label for="d${i}">${n} (${o.length})</label><select id="d${i}"><option value="">— unstated —</option>${o.map(x => `<option>${x}</option>`).join("")}</select></div>`).join(""); D.forEach((_, i) => $("d" + i).addEventListener("change", draw)); }
+function draw() {
+  let n = 1; const set = []; D.forEach(([name, o], i) => { const v = $("d" + i).value; if (v) set.push(`${name.toLowerCase()}: ${v}`); else n *= o.length; });
+  $("out").textContent = `unstated: ${D.filter((_, i) => !$("d" + i).value).map(d => `${d[0]} (${d[1].length})`).join(" × ") || "none"}\nbroadly distinct answers still acceptable: ${n.toLocaleString()} of 1,944`;
+  $("spec").textContent = `Write about glaucoma for patients.` + (set.length ? ` Specifically — ${set.join("; ")}.` : "");
+}
+build(); draw();
+</script></main></body></html>

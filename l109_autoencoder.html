@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A linear autoencoder rediscovers PCA — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:240">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 18, 109 · Lab L109.1</span></p>
+</div></header>
+<main>
+<h1>A linear autoencoder rediscovers PCA</h1>
+<p class="lede">Squeeze 2-D points through a one-number bottleneck and reconstruct them. With a linear encoder and decoder, the best bottleneck direction is the first principal component: the direction along which the data vary most.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="ang">Bottleneck direction u (angle) <span class="val" id="angV"></span></label><input type="range" id="ang" min="0" max="180" step="1" value="45"></div>
+<div class="control" style="display:flex;gap:.4rem;align-items:end"><button id="best" class="ghost">Find the best direction</button><button id="noise" class="ghost">Add 20 noisy points</button><button id="book" class="ghost">Book’s four points</button></div>
+</div></div>
+<figure><svg id="plot" viewBox="-4 -3 8 6" role="img" aria-labelledby="pT" style="max-width:620px;display:block;margin:auto;background:#f3f5f9;border-radius:8px"><title id="pT">Points, bottleneck direction, and reconstructions</title></svg>
+<figcaption>Cobalt: data. Line: the bottleneck direction. Crimson: each point’s reconstruction z·u; grey segments are the errors.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">At 45°, u = (0.707, 0.707). The point (−2, −1.8) encodes to z = −2.687 and decodes to (−1.90, −1.90); squared error 0.02. The one-number code keeps 99.6% of the variance (Math Box 109.1). “Find the best direction” lands at about 44° — for these four points the exact first principal component is a hair off the rounded (0.707, 0.707).</p>
+<p class="note">Rotate u to 135° and the reconstructions collapse to the origin — the code captures almost nothing. A nonlinear autoencoder can follow curved structure that no straight line can, which is what makes deep autoencoders, VAEs and latent diffusion possible (Chapters 18, 109–110, 113).</p>
+<script>
+const $ = id => document.getElementById(id);
+const BOOK = [[-2, -1.8], [-1, -1.2], [1, 1.2], [2, 1.8]];
+let P = BOOK.map(p => p.slice());
+const gauss = () => Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
+function stats(a) { const u = [Math.cos(a), Math.sin(a)]; let err = 0, tot = 0; const rec = P.map(p => { const z = p[0] * u[0] + p[1] * u[1], r = [z * u[0], z * u[1]]; err += (p[0] - r[0]) ** 2 + (p[1] - r[1]) ** 2; tot += p[0] ** 2 + p[1] ** 2; return [z, r]; }); return { u, rec, err, tot }; }
+function draw() {
+  const a = +$("ang").value * Math.PI / 180; $("angV").textContent = $("ang").value + "°";
+  const { u, rec, err, tot } = stats(a);
+  let s = `<title id="pT">AE</title><line x1="-4" y1="0" x2="4" y2="0" stroke="#d7dce6" stroke-width="0.02"/><line x1="0" y1="-3" x2="0" y2="3" stroke="#d7dce6" stroke-width="0.02"/><line x1="${-5 * u[0]}" y1="${5 * u[1]}" x2="${5 * u[0]}" y2="${-5 * u[1]}" stroke="#0f1626" stroke-width="0.03"/>`;
+  P.forEach((p, i) => { const r = rec[i][1]; s += `<line x1="${p[0]}" y1="${-p[1]}" x2="${r[0]}" y2="${-r[1]}" stroke="#9aa3b5" stroke-width="0.03"/><circle cx="${r[0]}" cy="${-r[1]}" r="0.07" fill="#d6215a"/><circle cx="${p[0]}" cy="${-p[1]}" r="0.09" fill="#1b4de4"/>`; });
+  $("plot").innerHTML = s;
+  const [z0, r0] = rec[0];
+  $("out").textContent = `u = (${u[0].toFixed(3)}, ${u[1].toFixed(3)})\nfirst point (${P[0].join(", ")}) → z = ${z0.toFixed(3)} → (${r0.map(v => v.toFixed(2)).join(", ")})\ntotal squared error ${err.toFixed(3)} of total ${tot.toFixed(3)} → variance kept ${((1 - err / tot) * 100).toFixed(1)}%`;
+}
+$("best").onclick = () => { let b = 0, be = Infinity; for (let d = 0; d < 180; d += 0.25) { const e = stats(d * Math.PI / 180).err; if (e < be) { be = e; b = d; } } $("ang").value = Math.round(b); draw(); };
+$("noise").onclick = () => { for (let i = 0; i < 20; i++) { const t = gauss() * 1.5; P.push([t + gauss() * .3, 0.9 * t + gauss() * .3]); } draw(); };
+$("book").onclick = () => { P = BOOK.map(p => p.slice()); $("ang").value = 45; draw(); };
+$("ang").addEventListener("input", draw); draw();
+</script></main></body></html>

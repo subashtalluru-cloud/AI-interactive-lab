@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subgroup performance and fairness trade-offs — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  table{border-collapse:collapse;font-family:var(--sans);font-size:.92rem;margin:.6rem 0;width:100%}
+  td,th{border-bottom:1px solid var(--rule);padding:.35rem .6rem;text-align:right}
+  td:first-child,th:first-child{text-align:left}
+  .gap{color:var(--crimson);font-weight:700}
+</style>
+</head>
+<body style="--hue:245">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 21, 158 · Lab L158.1</span></p>
+</div></header>
+
+<main>
+<h1>One model, two groups, several kinds of fair</h1>
+<p class="lede">A screening model scores patients from two groups of 1,000. Its scores separate disease less well in Group B, and disease is commoner there. Move the thresholds and the prevalences and see which kinds of equality can hold at the same time.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="pa">Prevalence, Group A <span class="val" id="paV"></span></label><input type="range" id="pa" min="0.02" max="0.5" step="0.01" value="0.10"></div>
+    <div class="control"><label for="pb">Prevalence, Group B <span class="val" id="pbV"></span></label><input type="range" id="pb" min="0.02" max="0.5" step="0.01" value="0.20"></div>
+    <div class="control"><label for="ta">Threshold, Group A <span class="val" id="taV"></span></label><input type="range" id="ta" min="-1" max="4" step="0.01" value="1.645"></div>
+    <div class="control"><label for="tb">Threshold, Group B <span class="val" id="tbV"></span></label><input type="range" id="tb" min="-1" max="4" step="0.01" value="1.645"></div>
+    <div class="control"><label for="sep">How well scores separate disease in Group B <span class="val" id="sepV"></span></label><input type="range" id="sep" min="0.5" max="3.5" step="0.01" value="2.319"></div>
+    <div class="control" style="display:flex;gap:.5rem;align-items:end;flex-wrap:wrap">
+      <button class="ghost" id="book">Book’s example</button><button class="ghost" id="eqsens">Equalize sensitivity</button><button class="ghost" id="eqppv">Equalize PPV</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="dist" viewBox="0 0 720 300" role="img" aria-labelledby="dT"><title id="dT">Score distributions for each group with thresholds</title></svg>
+  <figcaption>Each group: grey = patients without disease, coloured = with disease (heights scaled by prevalence). Everyone to the right of that group’s dashed threshold is referred.</figcaption>
+</figure>
+
+<table id="tab"></table>
+
+<h2>What to notice</h2>
+<p class="finding">With one shared threshold the model catches 90% of disease in Group A but only 75% in Group B — the group with more disease. The overall sensitivity (80%) hides the gap entirely.</p>
+<p class="note">“Equalize sensitivity” lowers B’s threshold until both catch the same share of disease; the cost is more false alarms in B, so specificity and PPV now differ. “Equalize PPV” makes a referral mean the same thing in both groups, and sensitivity diverges again. When prevalence differs and the model is imperfect, sensitivity, specificity and PPV cannot all be equal at once (Chapter 158) — choosing which to equalize is a clinical and ethical decision, not a technical one. Improving separation in Group B (better data, better model) is the only move that helps everywhere.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const MU_A = 2.926; // positives in A: P(score > 1.645) = 0.90
+const Phi = x => 0.5 * (1 + erf(x / Math.SQRT2));
+function erf(x) { const s = Math.sign(x); x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x);
+  return s * (1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x)); }
+const pdf = (x, m) => Math.exp(-((x - m) ** 2) / 2) / Math.sqrt(2 * Math.PI);
+function stats(prev, thr, mu) {
+  const n = 1000, pos = n * prev, neg = n - pos;
+  const sens = 1 - Phi(thr - mu), spec = Phi(thr);
+  const tp = sens * pos, fp = (1 - spec) * neg;
+  return { pos, neg, sens, spec, tp, fp, fn: pos - tp, ppv: tp / (tp + fp || 1), ref: (tp + fp) / n };
+}
+function draw() {
+  const pa = +$("pa").value, pb = +$("pb").value, ta = +$("ta").value, tb = +$("tb").value, mb = +$("sep").value;
+  $("paV").textContent = (pa * 100).toFixed(0) + "%"; $("pbV").textContent = (pb * 100).toFixed(0) + "%";
+  $("taV").textContent = ta.toFixed(2); $("tbV").textContent = tb.toFixed(2); $("sepV").textContent = mb.toFixed(2);
+  const A = stats(pa, ta, MU_A), B = stats(pb, tb, mb);
+  const X = v => 60 + (v + 3) / 9 * 620;
+  const panel = (y0, prev, mu, thr, col, name) => {
+    let s = `<text x="60" y="${y0 - 100}" font-family="ui-sans-serif,system-ui" font-size="13" font-weight="700" fill="${col}">${name}</text>`;
+    const xs = Array.from({ length: 181 }, (_, i) => -3 + i / 20), H = 95 / 0.4;
+    s += `<path d="M ${X(-3)} ${y0} ${xs.map(x => `L ${X(x)} ${y0 - pdf(x, 0) * (1 - prev) * H}`).join(" ")} L ${X(6)} ${y0} Z" fill="#9aa3b5" fill-opacity="0.35"/>`;
+    s += `<path d="M ${X(-3)} ${y0} ${xs.map(x => `L ${X(x)} ${y0 - pdf(x, mu) * prev * H}`).join(" ")} L ${X(6)} ${y0} Z" fill="${col}" fill-opacity="0.55"/>`;
+    s += `<line x1="${X(thr)}" y1="${y0 - 100}" x2="${X(thr)}" y2="${y0}" stroke="#0f1626" stroke-width="2" stroke-dasharray="5 4"/><line x1="60" y1="${y0}" x2="680" y2="${y0}" stroke="#b8c0cf"/>`;
+    return s;
+  };
+  $("dist").innerHTML = `<title id="dT">Distributions</title>` + panel(135, pa, MU_A, ta, "#1b4de4", "Group A") + panel(285, pb, mb, tb, "#e0930b", "Group B");
+  const tot = { tp: A.tp + B.tp, pos: A.pos + B.pos, fp: A.fp + B.fp, neg: A.neg + B.neg };
+  const row = (lab, a, b, all, f = v => v.toFixed(2)) => {
+    const gap = Math.abs(a - b) > 0.02;
+    return `<tr><td>${lab}</td><td>${f(a)}</td><td>${f(b)}</td><td class="${gap ? "gap" : ""}">${gap ? "differ by " + f(Math.abs(a - b)) : "≈ equal"}</td><td>${all !== null ? f(all) : ""}</td></tr>`;
+  };
+  $("tab").innerHTML = `<tr><th></th><th>Group A</th><th>Group B</th><th>parity?</th><th>both groups pooled</th></tr>` +
+    row("Sensitivity (disease caught)", A.sens, B.sens, tot.tp / tot.pos) +
+    row("Specificity", A.spec, B.spec, 1 - tot.fp / tot.neg) +
+    row("PPV (a referral is right)", A.ppv, B.ppv, tot.tp / (tot.tp + tot.fp)) +
+    row("Referral rate", A.ref, B.ref, null) +
+    `<tr><td>Missed cases per 1,000</td><td>${A.fn.toFixed(0)}</td><td>${B.fn.toFixed(0)}</td><td></td><td>${(A.fn + B.fn).toFixed(0)}</td></tr>`;
+}
+function solve(f, lo = -1, hi = 4) { for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; f(m) > 0 ? lo = m : hi = m; } return (lo + hi) / 2; }
+$("book").onclick = () => { $("pa").value = .1; $("pb").value = .2; $("ta").value = 1.645; $("tb").value = 1.645; $("sep").value = 2.319; draw(); };
+$("eqsens").onclick = () => {
+  const target = stats(+$("pa").value, +$("ta").value, MU_A).sens;
+  $("tb").value = solve(t => stats(+$("pb").value, t, +$("sep").value).sens - target).toFixed(2); draw();
+};
+$("eqppv").onclick = () => {
+  const target = stats(+$("pa").value, +$("ta").value, MU_A).ppv;
+  $("tb").value = solve(t => target - stats(+$("pb").value, t, +$("sep").value).ppv).toFixed(2); draw();
+};
+["pa", "pb", "ta", "tb", "sep"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main>
+</body>
+</html>

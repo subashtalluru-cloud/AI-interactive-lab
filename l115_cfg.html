@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Classifier-free guidance — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:37">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 112, 115 · Lab L115.1</span></p>
+</div></header>
+<main>
+<h1>Classifier-free guidance: extrapolating towards the prompt</h1>
+<p class="lede">At every denoising step an image model makes two predictions: one ignoring the prompt, one using it. Guidance takes the difference — “what the prompt changes” — and scales it up. Beyond a scale of 1 the model extrapolates past its own conditional prediction.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="w">Guidance scale w <span class="val" id="wV"></span></label><input type="range" id="w" min="0" max="15" step="0.1" value="7.5"></div>
+<div class="control"><label for="ux">Unconditional prediction (x, y)</label><div style="display:flex;gap:.3rem"><input id="ux" type="number" step="0.1" value="0.2" style="width:4.5rem"><input id="uy" type="number" step="0.1" value="-0.1" style="width:4.5rem"></div></div>
+<div class="control"><label for="cx">Conditional prediction (x, y)</label><div style="display:flex;gap:.3rem"><input id="cx" type="number" step="0.1" value="0.5" style="width:4.5rem"><input id="cy" type="number" step="0.1" value="0.3" style="width:4.5rem"></div></div>
+</div></div>
+<figure><svg id="plot" viewBox="-1 -3.5 5 4.5" role="img" aria-labelledby="pT" style="max-width:520px;display:block;margin:auto;background:#f3f5f9;border-radius:8px"><title id="pT">Unconditional, conditional and guided predictions</title></svg>
+<figcaption>Grey: unconditional ε̂_u. Green: conditional ε̂_c. Crimson: guided ε̂_u + w(ε̂_c − ε̂_u). The dashed line shows the direction the prompt pushes.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">(0.2, −0.1) and (0.5, 0.3): w = 1 gives (0.5, 0.3) — exactly the conditional; w = 3 gives (1.1, 1.1); w = 7.5 gives (2.45, 2.9) (Math Box 115.1).</p>
+<p class="note">Higher guidance makes images match the prompt more strongly and look more “typical”, at the cost of diversity and, pushed too far, of oversaturated or distorted images — much like lowering the temperature of a language model (Chapters 70, 112, 115).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const w = +$("w").value, u = [+$("ux").value, +$("uy").value], c = [+$("cx").value, +$("cy").value], d = [c[0] - u[0], c[1] - u[1]], g = [u[0] + w * d[0], u[1] + w * d[1]];
+  $("wV").textContent = w.toFixed(1);
+  const P = v => `${v[0]},${-v[1]}`;
+  let s = `<title id="pT">CFG</title><line x1="-1" y1="0" x2="4" y2="0" stroke="#d7dce6" stroke-width="0.02"/><line x1="0" y1="-3.5" x2="0" y2="1" stroke="#d7dce6" stroke-width="0.02"/>`;
+  s += `<line x1="${u[0] - d[0] * 2}" y1="${-(u[1] - d[1] * 2)}" x2="${u[0] + d[0] * 16}" y2="${-(u[1] + d[1] * 16)}" stroke="#9aa3b5" stroke-width="0.02" stroke-dasharray="0.08 0.06"/>`;
+  [[u, "#9aa3b5"], [c, "#0e8f6e"], [g, "#d6215a"]].forEach(([v, col]) => s += `<line x1="0" y1="0" x2="${v[0]}" y2="${-v[1]}" stroke="${col}" stroke-width="0.05"/><circle cx="${v[0]}" cy="${-v[1]}" r="0.08" fill="${col}"/>`);
+  $("plot").innerHTML = s;
+  $("out").textContent = `direction ε̂_c − ε̂_u = (${d.map(v => v.toFixed(2)).join(", ")})\nguided = (${u.join(", ")}) + ${w.toFixed(1)} × (${d.map(v => v.toFixed(2)).join(", ")}) = (${g.map(v => v.toFixed(2)).join(", ")})\n${w < 1 ? "w < 1: between unconditional and conditional" : w === 1 ? "w = 1: exactly the conditional prediction" : "w > 1: extrapolating beyond the conditional prediction"}`;
+}
+["w", "ux", "uy", "cx", "cy"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

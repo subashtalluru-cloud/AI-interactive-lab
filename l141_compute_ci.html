@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compute it: a confidence interval, shown — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:255">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 27, 141 · Lab L141.1</span></p>
+</div></header>
+<main>
+<h1>“Compute it” beats “tell me”: a confidence interval, shown</h1>
+<p class="lede">Paste a list of numbers. Every step of the mean, standard deviation and 95% confidence interval is shown — the kind of calculation that should be delegated to code, not to a language model’s arithmetic by prediction.</p>
+<div class="panel"><div class="controls">
+<div class="control" style="flex:1 1 100%"><label for="d">IOP reductions after SLT (mmHg), comma separated</label><input id="d" value="6, 4, 8, 3, 7, 5, 9, 2" style="width:100%;font-family:var(--mono);padding:.4rem;border:1px solid var(--rule);border-radius:6px"></div>
+<div class="control"><label for="cl">Confidence level</label><select id="cl"><option value="0.95">95%</option><option value="0.9">90%</option><option value="0.99">99%</option></select></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 150" role="img" aria-labelledby="pT"><title id="pT">Data points, mean, and confidence interval</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">6, 4, 8, 3, 7, 5, 9, 2: mean 44/8 = 5.5; squared deviations sum to 42; variance 6.0; SD 2.45; SE 0.866; t(7) = 2.365; 95% CI (3.45, 7.55) (Math Box 141.1).</p>
+<p class="note">With 8 values the t critical value (2.365) is noticeably larger than the normal 1.96; using 1.96 would give a falsely narrow interval. A model asked “what is the CI?” may get such details wrong while sounding right; code makes each step inspectable and scales to 800 rows as easily as 8 (Chapters 27, 128, 141).</p>
+<script>
+const $ = id => document.getElementById(id);
+function tcrit(df, conf) { // bisection on the t CDF via incomplete beta (numerical integration)
+  const pdf = x => Math.exp(lg((df + 1) / 2) - lg(df / 2)) / Math.sqrt(df * Math.PI) * (1 + x * x / df) ** (-(df + 1) / 2);
+  const cdf = x => { let s = 0, n = 2000, h = x / n; for (let i = 0; i < n; i++) s += pdf((i + 0.5) * h) * h; return 0.5 + s; };
+  let lo = 0, hi = 50; for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; cdf(m) < 1 - (1 - conf) / 2 ? lo = m : hi = m; } return (lo + hi) / 2;
+}
+function lg(z) { const c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5]; let x = z, y = z, t = x + 5.5; t -= (x + .5) * Math.log(t); let s = 1.000000000190015; c.forEach(v => s += v / ++y); return -t + Math.log(2.5066282746310005 * s / x); }
+function draw() {
+  const x = $("d").value.split(/[,\s]+/).map(Number).filter(v => isFinite(v) && $("d").value.trim() !== ""), n = x.length, conf = +$("cl").value;
+  if (n < 2) { $("out").textContent = "Enter at least two numbers."; $("plot").innerHTML = ""; return; }
+  const m = x.reduce((a, b) => a + b) / n, dev = x.map(v => (v - m) ** 2), ss = dev.reduce((a, b) => a + b), vr = ss / (n - 1), sd = Math.sqrt(vr), se = sd / Math.sqrt(n), t = tcrit(n - 1, conf), lo = m - t * se, hi = m + t * se;
+  const mn = Math.min(...x, lo) - 1, mx = Math.max(...x, hi) + 1, X = v => 40 + (v - mn) / (mx - mn) * 640;
+  let s = `<title id="pT">CI</title><line x1="40" y1="100" x2="680" y2="100" stroke="#b8c0cf"/>`;
+  x.forEach(v => s += `<circle cx="${X(v)}" cy="100" r="6" fill="#1b4de4" fill-opacity="0.6"/>`);
+  s += `<line x1="${X(lo)}" y1="60" x2="${X(hi)}" y2="60" stroke="#0e8f6e" stroke-width="5"/><circle cx="${X(m)}" cy="60" r="7" fill="#0f1626"/><text x="${X(m)}" y="44" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">mean ${m.toFixed(2)}</text>`;
+  for (let v = Math.ceil(mn); v <= mx; v++) s += `<text x="${X(v)}" y="124" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">${v}</text>`;
+  $("plot").innerHTML = s;
+  $("out").textContent = `n = ${n}; mean = ${x.reduce((a, b) => a + b)}/${n} = ${m.toFixed(3)}\nsquared deviations: ${dev.map(v => +v.toFixed(3)).join(", ")} → sum ${ss.toFixed(3)}\nvariance ${ss.toFixed(3)}/${n - 1} = ${vr.toFixed(3)};  SD ${sd.toFixed(3)};  SE ${sd.toFixed(3)}/√${n} = ${se.toFixed(3)}\nt critical (${n - 1} df, ${conf * 100}%) = ${t.toFixed(3)}  (normal would use ${conf === .95 ? "1.960" : conf === .9 ? "1.645" : "2.576"})\nCI = ${m.toFixed(3)} ± ${(t * se).toFixed(3)} = (${lo.toFixed(2)}, ${hi.toFixed(2)})`;
+}
+$("d").addEventListener("input", draw); $("cl").addEventListener("change", draw); draw();
+</script></main></body></html>

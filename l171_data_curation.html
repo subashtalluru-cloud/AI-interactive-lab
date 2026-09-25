@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deduplication and effective data — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:133">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 170, 171 · Lab L171.1</span></p>
+</div></header>
+<main>
+<h1>Deduplication, filtering and the data you actually have</h1>
+<p class="lede">A web crawl sounds enormous until duplicates and low-quality text are removed. What remains sets how many times a model must see the same data — or how much lower-quality or synthetic data it must accept.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="raw">Raw crawl (trillion tokens) <span class="val" id="rawV"></span></label><input type="range" id="raw" min="1" max="100" step="1" value="20"></div>
+<div class="control"><label for="dup">Share that are duplicates <span class="val" id="dupV"></span></label><input type="range" id="dup" min="0" max="0.8" step="0.01" value="0.4"></div>
+<div class="control"><label for="lq">Share of unique text judged low quality <span class="val" id="lqV"></span></label><input type="range" id="lq" min="0" max="0.9" step="0.01" value="0.5"></div>
+<div class="control"><label for="need">Tokens the training run needs (trillion) <span class="val" id="needV"></span></label><input type="range" id="need" min="1" max="60" step="1" value="15"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 170" role="img" aria-labelledby="pT"><title id="pT">Raw, deduplicated and filtered data compared with what training needs</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">20T raw → 12T after removing 40% duplicates → 6T after dropping half as low quality. A 15T run then repeats the 6T set about 2.5 times (Math Box 171.1).</p>
+<p class="note">A few epochs over good data cost little; many cost more. Aggressive filtering raises average quality but can silently remove dialects, informal writing and whole languages that a “polished-text” classifier rates poorly — a bias built in before training starts (Chapters 158, 170, 171).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [raw, dup, lq, need] = ["raw", "dup", "lq", "need"].map(k => +$(k).value);
+  $("rawV").textContent = raw; $("dupV").textContent = (dup * 100).toFixed(0) + "%"; $("lqV").textContent = (lq * 100).toFixed(0) + "%"; $("needV").textContent = need;
+  const u = raw * (1 - dup), q = u * (1 - lq), mx = Math.max(raw, need), W = v => v / mx * 480;
+  const R = [["raw crawl", raw, "#9aa3b5"], ["deduplicated", u, "#1b4de4"], ["high quality", q, "#0e8f6e"], ["run needs", need, "#d6215a"]];
+  let s = `<title id="pT">Data</title>`; R.forEach(([l, v, c], i) => s += `<text x="150" y="${30 + i * 36}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${l}</text><rect x="160" y="${12 + i * 36}" width="${W(v)}" height="26" fill="${c}"/><text x="${166 + W(v)}" y="${30 + i * 36}" font-family="ui-monospace,monospace" font-size="12" fill="#0f1626">${v.toFixed(1)}T</text>`);
+  $("plot").innerHTML = s;
+  $("out").textContent = `${raw} × ${(1 - dup).toFixed(2)} = ${u.toFixed(1)}T unique;  × ${(1 - lq).toFixed(2)} = ${q.toFixed(1)}T high quality\ntraining on ${need}T needs ${(need / q).toFixed(1)} passes over the high-quality set — or ${Math.max(0, need - q).toFixed(1)}T of lower-quality or synthetic data`;
+}
+["raw", "dup", "lq", "need"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Buying accuracy with inference compute — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:83">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 140, 164, 166 · Lab L164.1</span></p>
+</div></header>
+<main>
+<h1>Buying accuracy with inference compute</h1>
+<p class="lede">A reasoning model can spend more tokens thinking, sample several traces and vote, or keep any trace a verifier accepts. Each raises accuracy — at a price in time, compute and energy for every single answer.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="p">Accuracy of one reasoning trace <span class="val" id="pV"></span></label><input type="range" id="p" min="0.05" max="0.95" step="0.01" value="0.6"></div>
+    <div class="control"><label for="n">Samples drawn <span class="val" id="nV"></span></label><input type="range" id="n" min="1" max="64" step="1" value="8"></div>
+    <div class="control"><label for="T">Trace length (tokens) <span class="val" id="TV"></span></label><input type="range" id="T" min="100" max="50000" step="100" value="5000"></div>
+    <div class="control"><label for="N">Model size (billions) <span class="val" id="NV"></span></label><input type="range" id="N" min="1" max="400" step="1" value="70"></div>
+    <div class="control"><label for="tps">Decoding speed (tokens/s) <span class="val" id="tpsV"></span></label><input type="range" id="tps" min="10" max="300" step="5" value="50"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 280" role="img" aria-labelledby="pT"><title id="pT">Accuracy against number of samples for majority vote and for a verifier</title></svg>
+  <figcaption>Crimson: majority vote (odd and even N; ties broken at random). Cobalt: keep any sample a perfect verifier accepts, 1 − (1 − p)ᴺ. Dashed: a single trace.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">One 5,000-token trace on a 70B model costs about 7 × 10¹⁴ FLOPs and 100 seconds. Eight traces at 60% each, majority-voted, reach about 0.71; with a verifier, about 0.999 (Math Box 164.1).</p>
+<p class="note">Set per-trace accuracy below 0.5 and voting makes things <em>worse</em>: the majority converges on the wrong answer. Voting amplifies whatever the model usually does; a verifier can rescue a rare right answer. And the independence assumption is generous — real traces from one model make correlated mistakes, so real gains are smaller (Chapters 140, 164, 166).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function binom(n, k) { let r = 1; for (let i = 1; i <= k; i++) r = r * (n - k + i) / i; return r; }
+function vote(p, n) {
+  let s = 0;
+  for (let k = 0; k <= n; k++) { const pr = binom(n, k) * p ** k * (1 - p) ** (n - k); if (2 * k > n) s += pr; else if (2 * k === n) s += pr / 2; }
+  return s;
+}
+function draw() {
+  const p = +$("p").value, n = +$("n").value, T = +$("T").value, N = +$("N").value, tps = +$("tps").value;
+  ["p", "n", "T", "N", "tps"].forEach(id => $(id + "V").textContent = (+$(id).value).toLocaleString());
+  const X = k => 60 + (k - 1) / 63 * 620, Y = v => 250 - v * 220;
+  let s = `<title id="pT">Accuracy vs samples</title><rect x="60" y="30" width="620" height="220" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  [0, .25, .5, .75, 1].forEach(v => s += `<line x1="60" y1="${Y(v)}" x2="680" y2="${Y(v)}" stroke="#e3e7ef"/><text x="52" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  [1, 8, 16, 32, 48, 64].forEach(k => s += `<text x="${X(k)}" y="268" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${k}</text>`);
+  const ks = Array.from({ length: 64 }, (_, i) => i + 1);
+  s += `<line x1="60" y1="${Y(p)}" x2="680" y2="${Y(p)}" stroke="#4a5468" stroke-dasharray="5 4"/>`;
+  s += `<polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${ks.map(k => `${X(k)},${Y(1 - (1 - p) ** k)}`).join(" ")}"/>`;
+  s += `<polyline fill="none" stroke="#d6215a" stroke-width="3" points="${ks.map(k => `${X(k)},${Y(vote(p, k))}`).join(" ")}"/>`;
+  s += `<line x1="${X(n)}" y1="30" x2="${X(n)}" y2="250" stroke="#0f1626" stroke-dasharray="2 4"/>`;
+  $("plot").innerHTML = s;
+  const fl = 2 * N * 1e9 * T, direct = 2 * N * 1e9 * 5;
+  $("out").textContent =
+    `one trace: 2 × ${N}e9 × ${T.toLocaleString()} = ${fl.toExponential(1)} FLOPs (${Math.round(fl / direct).toLocaleString()}× a 5-token answer); ${(T / tps).toFixed(0)} s at ${tps} tokens/s\n` +
+    `${n} samples: majority vote ${vote(p, n).toFixed(3)}   verifier ${(1 - (1 - p) ** n).toFixed(3)}   single trace ${p.toFixed(2)}\n` +
+    `cost for ${n} samples: ${(fl * n).toExponential(1)} FLOPs; ${((T / tps) * n / 60).toFixed(1)} minutes if run one after another`;
+}
+["p", "n", "T", "N", "tps"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forgetting, and how to resist it — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:257">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 28, 179 · Lab L179.1</span></p>
+</div></header>
+<main>
+<h1>Forgetting, and how to resist it</h1>
+<p class="lede">A model learned task A and now trains on task B. Plain fine-tuning slides the parameters wherever B wants — undoing A. Elastic weight consolidation adds a spring pulling each parameter back toward A’s solution, stiff where A cared and slack where it did not.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="lam">EWC strength λ (0 = plain fine-tuning) <span class="val" id="lamV"></span></label><input type="range" id="lam" min="0" max="5" step="0.05" value="1"></div>
+    <div class="control"><label for="f1">Importance of θ₁ for task A (F₁) <span class="val" id="f1V"></span></label><input type="range" id="f1" min="0" max="20" step="0.1" value="10"></div>
+    <div class="control"><label for="f2">Importance of θ₂ for task A (F₂) <span class="val" id="f2V"></span></label><input type="range" id="f2" min="0" max="20" step="0.1" value="0.1"></div>
+    <div class="control" style="align-self:end"><button id="anim">Replay the training path</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plane" viewBox="0 0 720 360" role="img" aria-labelledby="pT"><title id="pT">Parameter plane with task A and task B loss contours and the training path</title></svg>
+  <figcaption>Cobalt ellipses: task A’s loss, narrow along θ₁ (A cares a lot) and wide along θ₂. Amber circles: task B’s loss. Crimson path: training on B from A’s solution. Green star: where it ends.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">With the book’s numbers — θ*_A = (1.0, 0.5), F = (10, 0.1), B preferring (0.2, −0.5) — plain fine-tuning goes all the way to B’s optimum. With λ = 1, θ₁ barely moves (to about 0.93) while θ₂ moves almost freely (to about −0.41): B is learned mostly in the parameter A did not need.</p>
+<p class="note">Too large a λ and B is never learned; too small and A is forgotten — the stability–plasticity trade-off. Replay, the other remedy of Math Box 179.1, keeps A’s real data in the mix instead, which works well but requires storing old data, often impossible for private clinical records (Chapter 179).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const TA = [1.0, 0.5], TB = [0.2, -0.5];
+let path = [], t = null;
+function lossA(th, F) { return F[0] * (th[0] - TA[0]) ** 2 + F[1] * (th[1] - TA[1]) ** 2; }
+function lossB(th) { return (th[0] - TB[0]) ** 2 + (th[1] - TB[1]) ** 2; }
+function run(lam, F) {
+  let th = TA.slice(); const out = [th.slice()], lr = 0.02 / (1 + lam * Math.max(...F) * 0.1);
+  for (let i = 0; i < 4000; i++) {
+    const g = [2 * (th[0] - TB[0]) + 2 * lam * F[0] * (th[0] - TA[0]), 2 * (th[1] - TB[1]) + 2 * lam * F[1] * (th[1] - TA[1])];
+    th = [th[0] - lr * g[0], th[1] - lr * g[1]]; if (i % 20 === 0) out.push(th.slice());
+  }
+  out.push(th.slice()); return out;
+}
+function draw(upto) {
+  const lam = +$("lam").value, F = [+$("f1").value, +$("f2").value];
+  $("lamV").textContent = lam.toFixed(2); $("f1V").textContent = F[0].toFixed(1); $("f2V").textContent = F[1].toFixed(1);
+  const X = v => 360 + (v - 0.4) * 260, Y = v => 180 - v * 130;
+  let s = `<title id="pT">Parameter plane</title><defs><clipPath id="cp"><rect x="20" y="10" width="680" height="340"/></clipPath></defs><rect x="20" y="10" width="680" height="340" fill="#f3f5f9" stroke="#d7dce6"/><g clip-path="url(#cp)">`;
+  s += `<line x1="20" y1="${Y(0)}" x2="700" y2="${Y(0)}" stroke="#d7dce6"/><line x1="${X(0)}" y1="10" x2="${X(0)}" y2="350" stroke="#d7dce6"/>`;
+  [0.05, 0.2, 0.5, 1].forEach(c => {
+    const a = Math.sqrt(c / Math.max(F[0], 1e-3)), b = Math.sqrt(c / Math.max(F[1], 1e-3));
+    s += `<ellipse cx="${X(TA[0])}" cy="${Y(TA[1])}" rx="${Math.min(2000, a * 260)}" ry="${Math.min(2000, b * 130)}" fill="none" stroke="#1b4de4" stroke-opacity="0.55"/>`;
+    s += `<ellipse cx="${X(TB[0])}" cy="${Y(TB[1])}" rx="${Math.sqrt(c) * 260}" ry="${Math.sqrt(c) * 130}" fill="none" stroke="#e0930b" stroke-opacity="0.7"/>`;
+  });
+  s += `</g>`;
+  s += `<circle cx="${X(TA[0])}" cy="${Y(TA[1])}" r="6" fill="#1b4de4"/><text x="${X(TA[0]) + 9}" y="${Y(TA[1]) - 8}" font-family="ui-sans-serif,system-ui" font-size="12" fill="#1b4de4">θ*_A (1.0, 0.5)</text>`;
+  s += `<circle cx="${X(TB[0])}" cy="${Y(TB[1])}" r="6" fill="#e0930b"/><text x="${X(TB[0]) + 9}" y="${Y(TB[1]) + 18}" font-family="ui-sans-serif,system-ui" font-size="12" fill="#b06f00">B’s optimum (0.2, −0.5)</text>`;
+  const shown = path.slice(0, upto ?? path.length);
+  if (shown.length > 1) s += `<polyline fill="none" stroke="#d6215a" stroke-width="2.5" points="${shown.map(p => `${X(p[0])},${Y(p[1])}`).join(" ")}"/>`;
+  const end = path[path.length - 1];
+  if (upto === undefined || upto >= path.length) s += `<text x="${X(end[0])}" y="${Y(end[1]) + 7}" text-anchor="middle" font-size="20" fill="#0e8f6e">★</text>`;
+  s += `<text x="690" y="${Y(0) - 6}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">θ₁</text><text x="${X(0) + 6}" y="24" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">θ₂</text>`;
+  $("plane").innerHTML = s;
+  const exact = [0, 1].map(i => (TB[i] + lam * F[i] * TA[i]) / (1 + lam * F[i]));
+  $("out").textContent =
+    `L = L_B + λ Σ Fᵢ(θᵢ − θ*_A,ᵢ)²;  end point θ = (${end[0].toFixed(3)}, ${end[1].toFixed(3)})  [closed form (${exact.map(v => v.toFixed(3)).join(", ")})]\n` +
+    `task A penalty-weighted loss Σ Fᵢ(θᵢ − θ*)² = ${lossA(end, F).toFixed(3)}  (0 = A untouched; plain fine-tuning: ${lossA(TB, F).toFixed(3)})\n` +
+    `task B loss = ${lossB(end).toFixed(3)}  (0 = B fully learned)\n` +
+    `cost of moving θ₁ by 0.8 = ${F[0].toFixed(1)} × 0.64 = ${(F[0] * .64).toFixed(2)};  moving θ₂ by 1.0 = ${F[1].toFixed(1)} × 1 = ${F[1].toFixed(2)}`;
+}
+function recompute() { path = run(+$("lam").value, [+$("f1").value, +$("f2").value]); draw(); }
+$("anim").onclick = () => {
+  clearInterval(t); let k = 1;
+  t = setInterval(() => { draw(k); k += 3; if (k > path.length) { clearInterval(t); draw(); } }, 30);
+};
+["lam", "f1", "f2"].forEach(id => $(id).addEventListener("input", recompute));
+recompute();
+</script>
+</main></body></html>

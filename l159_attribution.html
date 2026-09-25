@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Who gets the credit? — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:108">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 155, 159 · Lab L159.1</span></p>
+</div></header>
+<main>
+<h1>Who gets the credit? Two attribution methods</h1>
+<p class="lede">An explanation method divides a prediction among the input features. For a linear model the division is exact. When features interact, there is no single obvious split — Shapley values choose the fair average over every order of adding features. Both answers depend on what “absent” means.</p>
+
+<h2>1 · Gradient × input for a linear model</h2>
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="w1">w₁ <span class="val" id="w1V"></span></label><input type="range" id="w1" min="-4" max="4" step="0.1" value="2"></div>
+    <div class="control"><label for="w2">w₂ <span class="val" id="w2V"></span></label><input type="range" id="w2" min="-4" max="4" step="0.1" value="-3"></div>
+    <div class="control"><label for="w3">w₃ <span class="val" id="w3V"></span></label><input type="range" id="w3" min="-4" max="4" step="0.1" value="1"></div>
+    <div class="control"><label for="x1">x₁ <span class="val" id="x1V"></span></label><input type="range" id="x1" min="0" max="1" step="0.05" value="0.5"></div>
+    <div class="control"><label for="x2">x₂ <span class="val" id="x2V"></span></label><input type="range" id="x2" min="0" max="1" step="0.05" value="0.2"></div>
+    <div class="control"><label for="x3">x₃ <span class="val" id="x3V"></span></label><input type="range" id="x3" min="0" max="1" step="0.05" value="0.4"></div>
+    <div class="control"><label for="base">Baseline (“absent” value for every feature) <span class="val" id="baseV"></span></label><input type="range" id="base" min="0" max="1" step="0.05" value="0"></div>
+  </div>
+</div>
+<figure>
+  <svg id="gi" viewBox="0 0 720 170" role="img" aria-labelledby="giT"><title id="giT">Contribution of each feature to the logit</title></svg>
+  <figcaption>Bars to the right push toward the positive class, bars to the left against it. They add up exactly to the change in logit from baseline to input.</figcaption>
+</figure>
+<p class="readout" id="giOut"></p>
+
+<h2>2 · Shapley values when features interact</h2>
+<div class="panel">
+  <p style="font-family:var(--sans);font-size:.9rem;margin:0 0 .4rem">f(a, b) = α·a + β·b + γ·a·b, explained at a = 1, b = 1.</p>
+  <div class="controls">
+    <div class="control"><label for="al">α <span class="val" id="alV"></span></label><input type="range" id="al" min="-4" max="6" step="0.5" value="3"></div>
+    <div class="control"><label for="be">β <span class="val" id="beV"></span></label><input type="range" id="be" min="-4" max="6" step="0.5" value="2"></div>
+    <div class="control"><label for="ga">Interaction γ <span class="val" id="gaV"></span></label><input type="range" id="ga" min="-6" max="6" step="0.5" value="1"></div>
+    <div class="control"><label for="b0">Baseline for “absent” <span class="val" id="b0V"></span></label><input type="range" id="b0" min="0" max="1" step="0.25" value="0"></div>
+  </div>
+</div>
+<figure>
+  <svg id="sh" viewBox="0 0 720 200" role="img" aria-labelledby="shT"><title id="shT">Marginal contributions in both orders and their averages</title></svg>
+  <figcaption>Top two rows: the two orders of adding features, and what each feature adds in that order. Bottom: the Shapley values — the averages — which sum to f(input) − f(baseline).</figcaption>
+</figure>
+<p class="readout" id="shOut"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s cases: contributions 1.0, −0.6, 0.4 summing to the logit 0.8; Shapley values 3.5 and 2.5 summing to 6, with the interaction worth 1 split equally.</p>
+<p class="note">Move the baseline. Every attribution changes, though the model and the input have not: an explanation always answers “compared with what?” Set γ large and the credit each feature gets depends heavily on order — Shapley averages that away, but the average hides the interaction itself. Attributions describe the model, not the disease, and they need the sanity checks of Chapter 159 before anyone trusts them.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const COL = ["#1b4de4", "#e0930b", "#0e8f6e"];
+function drawGI() {
+  const w = [1, 2, 3].map(i => +$("w" + i).value), x = [1, 2, 3].map(i => +$("x" + i).value), b = +$("base").value;
+  ["w1", "w2", "w3", "x1", "x2", "x3"].forEach(id => $(id + "V").textContent = (+$(id).value).toFixed(2)); $("baseV").textContent = b.toFixed(2);
+  const c = w.map((wi, i) => wi * (x[i] - b)), z = w.reduce((s, wi, i) => s + wi * x[i], 0), zb = w.reduce((s, wi) => s + wi * b, 0);
+  const X = v => 360 + v * 70;
+  let s = `<title id="giT">Contributions</title><line x1="360" y1="10" x2="360" y2="150" stroke="#9aa3b5"/>`;
+  c.forEach((v, i) => {
+    const y = 20 + i * 42;
+    s += `<text x="80" y="${y + 18}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="13" fill="#0f1626">feature ${i + 1}</text>`;
+    s += `<rect x="${Math.min(X(0), X(v))}" y="${y}" width="${Math.abs(v) * 70}" height="26" fill="${v >= 0 ? "#1b4de4" : "#d6215a"}" fill-opacity="0.8"/>`;
+    s += `<text x="${X(v) + (v >= 0 ? 6 : -6)}" y="${y + 18}" text-anchor="${v >= 0 ? "start" : "end"}" font-family="ui-monospace,monospace" font-size="12" fill="#0f1626">${v.toFixed(2)}</text>`;
+  });
+  $("gi").innerHTML = s;
+  $("giOut").textContent =
+    `contributions wᵢ(xᵢ − baseline) = (${c.map(v => v.toFixed(2)).join(", ")})   sum = ${c.reduce((a, v) => a + v, 0).toFixed(2)}\n` +
+    `logit at input = ${z.toFixed(2)}, at baseline = ${zb.toFixed(2)}, difference = ${(z - zb).toFixed(2)} ✓\n` +
+    `largest push: feature ${c.map(Math.abs).indexOf(Math.max(...c.map(Math.abs))) + 1}`;
+}
+function drawSH() {
+  const al = +$("al").value, be = +$("be").value, ga = +$("ga").value, b0 = +$("b0").value;
+  $("alV").textContent = al; $("beV").textContent = be; $("gaV").textContent = ga; $("b0V").textContent = b0;
+  const f = (a, b) => al * a + be * b + ga * a * b;
+  const A1 = f(1, b0) - f(b0, b0), B1 = f(1, 1) - f(1, b0);   // order a then b
+  const B2 = f(b0, 1) - f(b0, b0), A2 = f(1, 1) - f(b0, 1);   // order b then a
+  const pa = (A1 + A2) / 2, pb = (B1 + B2) / 2, tot = f(1, 1) - f(b0, b0);
+  const sc = 380 / Math.max(1, Math.abs(A1) + Math.abs(B1), Math.abs(A2) + Math.abs(B2), Math.abs(pa) + Math.abs(pb));
+  const row = (y, lab, first, v1, second, v2) => {
+    let x = 200, s = `<text x="190" y="${y + 18}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${lab}</text>`;
+    [[first, v1], [second, v2]].forEach(([n, v]) => {
+      const w = Math.abs(v) * sc;
+      s += `<rect x="${x}" y="${y}" width="${Math.max(1, w)}" height="26" fill="${n === "a" ? COL[0] : COL[1]}" fill-opacity="${v >= 0 ? .85 : .35}" stroke="${v < 0 ? "#d6215a" : "none"}"/>`;
+      if (w > 30) s += `<text x="${x + w / 2}" y="${y + 18}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" fill="#fff">${n}: ${v.toFixed(2)}</text>`;
+      x += w;
+    });
+    return s;
+  };
+  $("sh").innerHTML = `<title id="shT">Shapley</title>` +
+    row(15, "add a, then b", "a", A1, "b", B1) + row(65, "add b, then a", "b", B2, "a", A2) + row(135, "Shapley (average)", "a", pa, "b", pb);
+  $("shOut").textContent =
+    `f(input) − f(baseline) = ${f(1, 1).toFixed(2)} − ${f(b0, b0).toFixed(2)} = ${tot.toFixed(2)}\n` +
+    `a: adds ${A1.toFixed(2)} if first, ${A2.toFixed(2)} if second → Shapley ${pa.toFixed(2)}\n` +
+    `b: adds ${B2.toFixed(2)} if first, ${B1.toFixed(2)} if second → Shapley ${pb.toFixed(2)}     sum ${(pa + pb).toFixed(2)} ✓`;
+}
+["w1", "w2", "w3", "x1", "x2", "x3", "base"].forEach(id => $(id).addEventListener("input", drawGI));
+["al", "be", "ga", "b0"].forEach(id => $(id).addEventListener("input", drawSH));
+drawGI(); drawSH();
+</script>
+</main></body></html>

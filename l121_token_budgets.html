@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Same content, different token budgets — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:45">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 117, 121 · Lab L121.1</span></p>
+</div></header>
+<main>
+<h1>Same content, different token budgets</h1>
+<p class="lede">A minute of speech, an image, a scan volume: each can be represented as text, as encoder frames, or as tokens — at very different costs, and keeping very different information.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="min">Minutes of speech <span class="val" id="minV"></span></label><input type="range" id="min" min="1" max="60" step="1" value="1"></div>
+<div class="control"><label for="wpm">Words per minute <span class="val" id="wpmV"></span></label><input type="range" id="wpm" min="80" max="200" step="5" value="150"></div>
+<div class="control"><label for="fps">Audio encoder frames per second <span class="val" id="fpsV"></span></label><input type="range" id="fps" min="10" max="100" step="5" value="50"></div>
+<div class="control"><label for="sl">OCT B-scans <span class="val" id="slV"></span></label><input type="range" id="sl" min="16" max="512" step="16" value="128"></div>
+<div class="control"><label for="px">B-scan side (px) <span class="val" id="pxV"></span></label><input type="range" id="px" min="128" max="1024" step="64" value="512"></div>
+<div class="control"><label for="ps">Patch size <span class="val" id="psV"></span></label><input type="range" id="ps" min="8" max="32" step="4" value="16"></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">One minute of speech: about 200 transcript tokens against about 3,000 encoder frames. One OCT volume of 128 B-scans at 512 × 512 with 16-pixel patches: 131,072 patch tokens (Math Box 121.1).</p>
+<p class="note">The transcript is 15× cheaper but discards tone, hesitation, breathlessness, slurred speech — sometimes the clinical sign itself. Volumes exceed many context windows, which is why 3-D imaging usually needs specialist encoders or selective slices (Chapters 121–123).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [mi, wpm, fps, sl, px, ps] = ["min", "wpm", "fps", "sl", "px", "ps"].map(k => +$(k).value); ["min", "wpm", "fps", "sl", "px", "ps"].forEach(k => $(k + "V").textContent = $(k).value);
+  const tt = mi * wpm * 1.3, fr = mi * 60 * fps, oct = sl * (px / ps) ** 2;
+  $("out").textContent = `speech, ${mi} min: transcript ≈ ${Math.round(tt).toLocaleString()} tokens;  encoder frames ${fr.toLocaleString()} (${(fr / tt).toFixed(0)}× more)\nOCT volume: ${sl} × (${px}/${ps})² = ${oct.toLocaleString()} patch tokens`;
+}
+["min", "wpm", "fps", "sl", "px", "ps"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

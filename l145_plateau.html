@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>When prompting is the wrong tool — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:73">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 134, 145 · Lab L145.1</span></p>
+</div></header>
+<main>
+<h1>When prompting is the wrong tool</h1>
+<p class="lede">If a model lacks the information, rewording the question cannot supply it. Prompt improvements plateau within the noise of a small test; supplying the missing document changes the result outright.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="n">Test questions <span class="val" id="nV"></span></label><input type="range" id="n" min="20" max="1000" step="10" value="50"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Accuracy by prompt version with 95% intervals</title></svg><figcaption>Bars with 95% intervals. Overlapping intervals mean the differences may be noise.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">62% → 66% → 68% → 67% with better prompts; 94% with the criteria document supplied. On 50 questions the standard error is about 7 points, so the prompt gains are within noise; the retrieval gain is not (Math Box 145.1).</p>
+<p class="note">Prompt-sensitive errors respond to rewording; knowledge gaps do not. Recognizing which you face saves effort: supply the source, use a tool, or fine-tune — not another round of phrasing (Chapters 27, 145–146).</p>
+<script>
+const $ = id => document.getElementById(id);
+const R = [["original", .62], ["better instructions", .66], ["+ examples", .68], ["“think step by step”", .67], ["+ criteria document", .94]];
+function draw() {
+  const n = +$("n").value; $("nV").textContent = n;
+  let s = `<title id="pT">Accuracy</title><line x1="40" y1="220" x2="700" y2="220" stroke="#b8c0cf"/>`;
+  R.forEach(([l, p], i) => { const se = Math.sqrt(p * (1 - p) / n), x = 70 + i * 128, Y = v => 220 - v * 200;
+    s += `<rect x="${x}" y="${Y(p)}" width="70" height="${p * 200}" fill="${i === 4 ? "#0e8f6e" : "#1b4de4"}" fill-opacity="0.7"/><line x1="${x + 35}" y1="${Y(Math.min(1, p + 1.96 * se))}" x2="${x + 35}" y2="${Y(p - 1.96 * se)}" stroke="#0f1626" stroke-width="2"/><text x="${x + 35}" y="238" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="10">${l}</text>`; });
+  $("plot").innerHTML = s;
+  $("out").textContent = R.map(([l, p]) => `${l.padEnd(22)} ${(p * 100).toFixed(0)}% ± ${(196 * Math.sqrt(p * (1 - p) / n)).toFixed(1)}`).join("\n");
+}
+$("n").addEventListener("input", draw); draw();
+</script></main></body></html>

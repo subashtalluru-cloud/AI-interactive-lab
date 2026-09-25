@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turning an image into tokens — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:47">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 118, 123 · Lab L118.1</span></p>
+</div></header>
+<main>
+<h1>Turning an image into tokens</h1>
+<p class="lede">A vision transformer cuts the image into square patches, flattens each one and projects it to a vector. The patch size sets the sequence length, and the sequence length sets the cost.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="res">Image side (pixels) <span class="val" id="resV"></span></label>
+      <select id="res"><option>112</option><option selected>224</option><option>336</option><option>448</option><option>896</option></select></div>
+    <div class="control"><label for="ps">Patch size <span class="val" id="psV"></span></label>
+      <select id="ps"><option>8</option><option selected>14</option><option>16</option><option>32</option></select></div>
+    <div class="control"><label for="d">Model width d <span class="val" id="dV"></span></label>
+      <select id="d"><option>384</option><option selected>768</option><option>1024</option></select></div>
+  </div>
+</div>
+
+<figure>
+  <canvas id="cv" width="448" height="448" style="width:100%;max-width:448px;display:block;margin:auto;border-radius:8px" aria-label="Drawn fundus divided into patches"></canvas>
+  <figcaption>A drawn fundus with the patch grid overlaid. The small dark spot near the disc is 4 pixels across at 224 × 224 — watch how many patches it touches, and how little of each it fills.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">224 × 224 with 16-pixel patches: 14 × 14 = 196 patches, 197 tokens with [CLS]; the patch-embedding layer has 16 × 16 × 3 × 768 = 589,824 weights. 336 × 336 with 14-pixel patches: 576 tokens.</p>
+<p class="note">Halving the patch size or doubling the resolution quadruples the tokens and multiplies attention cost by about sixteen. For medical images, where a microaneurysm or a disc haemorrhage may be a few pixels, this is the central trade-off: fine detail against compute (Chapters 48, 118, 123).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function fundus(g, S) {
+  g.fillStyle = "#000"; g.fillRect(0, 0, S, S);
+  const c = S / 2, R = S * 0.47, grd = g.createRadialGradient(c, c, R * .1, c, c, R);
+  grd.addColorStop(0, "#c85a2a"); grd.addColorStop(1, "#5a1a0c");
+  g.fillStyle = grd; g.beginPath(); g.arc(c, c, R, 0, 7); g.fill();
+  g.strokeStyle = "#3a0806"; g.lineCap = "round";
+  const V = (pts, w) => { g.lineWidth = w * S / 224; g.beginPath(); g.moveTo(pts[0][0] * S, pts[0][1] * S); for (let i = 1; i < pts.length; i += 2) g.quadraticCurveTo(pts[i][0] * S, pts[i][1] * S, pts[i + 1][0] * S, pts[i + 1][1] * S); g.stroke(); };
+  V([[.68, .5], [.5, .25], [.25, .2]], 3); V([[.68, .5], [.5, .75], [.25, .8]], 3); V([[.68, .5], [.85, .25], [.92, .18]], 2.5); V([[.68, .5], [.85, .75], [.92, .82]], 2.5);
+  g.fillStyle = "#f2d8a0"; g.beginPath(); g.arc(.68 * S, .5 * S, .06 * S, 0, 7); g.fill();
+  g.fillStyle = "#3a0c06"; g.beginPath(); g.arc(.36 * S, .51 * S, .035 * S, 0, 7); g.fill();
+  g.fillStyle = "#6a0000"; g.beginPath(); g.arc(.6 * S, .42 * S, 2 * S / 224, 0, 7); g.fill();
+}
+function draw() {
+  const res = +$("res").value, ps = +$("ps").value, d = +$("d").value;
+  $("resV").textContent = res + " px"; $("psV").textContent = ps + " px"; $("dV").textContent = d;
+  const cv = $("cv"), g = cv.getContext("2d"), S = 448, off = document.createElement("canvas");
+  off.width = off.height = res; fundus(off.getContext("2d"), res);
+  g.imageSmoothingEnabled = false; g.drawImage(off, 0, 0, S, S);
+  const n = Math.floor(res / ps), step = S * ps / res;
+  g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineWidth = n > 40 ? 0.5 : 1;
+  for (let i = 0; i <= n; i++) { g.beginPath(); g.moveTo(i * step, 0); g.lineTo(i * step, n * step); g.stroke(); g.beginPath(); g.moveTo(0, i * step); g.lineTo(n * step, i * step); g.stroke(); }
+  const P = n * n, T = P + 1, emb = ps * ps * 3 * d, spot = 4 * res / 224;
+  $("out").textContent =
+    `patches per side = ${res} / ${ps} = ${n}${res % ps ? " (edge pixels dropped)" : ""};  patches = ${n}² = ${P};  tokens with [CLS] = ${T}\n` +
+    `patch embedding: ${ps}×${ps}×3 = ${ps * ps * 3} inputs × ${d} outputs = ${emb.toLocaleString()} weights\n` +
+    `attention scores per head per layer: ${T}² = ${(T * T).toLocaleString()}   (versus ${(res * res).toLocaleString()} pixel tokens → ${((res * res) ** 2).toExponential(1)})\n` +
+    `the small haemorrhage is ≈ ${spot.toFixed(0)} px wide: ${(spot * spot / (ps * ps) * 100).toFixed(0)}% of one patch’s area`;
+}
+["res", "ps", "d"].forEach(id => $(id).addEventListener("change", draw));
+draw();
+</script>
+</main></body></html>

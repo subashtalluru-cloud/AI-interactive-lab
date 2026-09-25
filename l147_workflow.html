@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One-shot question or structured workflow? — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:80">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 138, 147 · Lab L147.1</span></p>
+</div></header>
+<main>
+<h1>One-shot question or structured workflow?</h1>
+<p class="lede">A departmental guideline needs, say, 30 factual claims. Ask once and edit, or build a workflow with source extraction and checking steps? The workflow costs more time; the question is what it buys in errors that nobody notices.</p>
+<p class="note">All numbers are illustrative defaults. The times are those of Math Box 147.1; the error and catch rates are assumptions to vary, not measurements.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="claims">Factual claims in the document <span class="val" id="claimsV"></span></label><input type="range" id="claims" min="5" max="100" step="1" value="30"></div>
+    <div class="control"><label for="err">Chance any one claim is wrong in a one-shot answer <span class="val" id="errV"></span></label><input type="range" id="err" min="0.01" max="0.2" step="0.005" value="0.05"></div>
+    <div class="control"><label for="edit">Share of errors a reader catches while editing <span class="val" id="editV"></span></label><input type="range" id="edit" min="0" max="0.9" step="0.05" value="0.4"></div>
+    <div class="control"><label for="wf">Share caught by the workflow’s source checks <span class="val" id="wfV"></span></label><input type="range" id="wf" min="0.5" max="0.99" step="0.01" value="0.9"></div>
+    <div class="control"><label for="cost">Cost of one undetected error, in minutes of later work <span class="val" id="costV"></span></label><input type="range" id="cost" min="0" max="600" step="10" value="120"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 240" role="img" aria-labelledby="pT"><title id="pT">Time spent and expected cost of undetected errors for three approaches</title></svg>
+  <figcaption>Solid bars: time spent. Hatched: expected cost of the errors that get through. Unaided writing is shown for scale, assuming it is accurate.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">One-shot: about 22 minutes. Workflow: about 95. Unaided: 4–6 hours (Math Box 147.1). With the default assumptions, the one-shot version leaves about 0.9 undetected errors in the document; the workflow about 0.09. The break-even is about 90 minutes per undetected error.</p>
+<p class="note">Set the cost of an error near zero — a draft for your own eyes — and one-shot wins. Raise it — a guideline other clinicians will follow — and the workflow’s extra 73 minutes are cheap. The workflow’s real advantage is not only fewer errors but traceability: each claim has a quoted source a reviewer can check (Chapters 138, 147).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const n = +$("claims").value, e = +$("err").value, ed = +$("edit").value, wf = +$("wf").value, c = +$("cost").value;
+  $("claimsV").textContent = n; $("errV").textContent = (e * 100).toFixed(1) + "%"; $("editV").textContent = (ed * 100).toFixed(0) + "%"; $("wfV").textContent = (wf * 100).toFixed(0) + "%"; $("costV").textContent = c;
+  const one = { t: 22, u: n * e * (1 - ed) }, flow = { t: 95, u: n * e * (1 - ed) * (1 - wf) }, un = { t: 300, u: 0 };
+  const rows = [["One-shot + edit", one, "#e0930b"], ["Workflow", flow, "#0e8f6e"], ["Unaided", un, "#9aa3b5"]];
+  const mx = Math.max(...rows.map(([, r]) => r.t + r.u * c)), W = 520 / mx;
+  let s = `<title id="pT">Time and cost</title><defs><pattern id="h" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="#d6215a" stroke-width="3"/></pattern></defs>`;
+  rows.forEach(([l, r, col], i) => {
+    const y = 20 + i * 70;
+    s += `<text x="150" y="${y + 28}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="13" fill="#0f1626">${l}</text>`;
+    s += `<rect x="160" y="${y + 8}" width="${r.t * W}" height="32" fill="${col}"/>`;
+    s += `<rect x="${160 + r.t * W}" y="${y + 8}" width="${r.u * c * W}" height="32" fill="url(#h)" stroke="#d6215a"/>`;
+    s += `<text x="${166 + (r.t + r.u * c) * W}" y="${y + 29}" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${(r.t + r.u * c).toFixed(0)} min</text>`;
+  });
+  $("plot").innerHTML = s;
+  $("out").textContent =
+    `expected wrong claims before checking: ${n} × ${e} = ${(n * e).toFixed(2)}\n` +
+    `one-shot: ${one.u.toFixed(2)} undetected (P(at least one) = ${((1 - Math.pow(1 - e * (1 - ed), n)) * 100).toFixed(0)}%) → ${one.t} + ${one.u.toFixed(2)} × ${c} = ${(one.t + one.u * c).toFixed(0)} min\n` +
+    `workflow: ${flow.u.toFixed(2)} undetected (P(at least one) = ${((1 - Math.pow(1 - e * (1 - ed) * (1 - wf), n)) * 100).toFixed(0)}%) → ${flow.t} + ${flow.u.toFixed(2)} × ${c} = ${(flow.t + flow.u * c).toFixed(0)} min\n` +
+    `break-even error cost: ${((flow.t - one.t) / Math.max(1e-9, one.u - flow.u)).toFixed(0)} minutes per undetected error`;
+}
+["claims", "err", "edit", "wf", "cost"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

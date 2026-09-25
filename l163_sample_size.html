@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How big must an evaluation be? — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:98">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 149, 163 · Lab L163.1</span></p>
+</div></header>
+
+<main>
+<h1>Is model A really better than model B?</h1>
+<p class="lede">Two models, true accuracies differing by a small amount, each tested on n cases. Run the comparison many times and count how often the test set even gets the ranking right — and how often it would be declared significant.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="p">Accuracy of model B <span class="val" id="pV"></span></label><input type="range" id="p" min="0.5" max="0.97" step="0.01" value="0.85"></div>
+    <div class="control"><label for="d">True advantage of model A <span class="val" id="dV"></span></label><input type="range" id="d" min="0" max="0.1" step="0.005" value="0.02"></div>
+    <div class="control"><label for="n">Test cases per model <span class="val" id="nV"></span></label><input type="range" id="n" min="50" max="8000" step="50" value="300"></div>
+    <div class="control"><label for="rho">Paired design: correlation ρ between the two models’ case-by-case results <span class="val" id="rhoV"></span></label><input type="range" id="rho" min="0" max="0.9" step="0.05" value="0"></div>
+    <div class="control" style="align-self:end"><button id="run">Run 400 evaluations</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="hist" viewBox="0 0 720 280" role="img" aria-labelledby="hT"><title id="hT">Distribution of observed differences across repeated evaluations</title></svg>
+  <figcaption>Each bar counts evaluations by the observed difference (A minus B). The green line marks the true difference; the grey band is ±1.96 standard errors around zero — observed differences inside it would not be called significant.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">At 85% accuracy, a true 2-point advantage needs about 5,000 cases per model to be detected reliably. With 300 cases the observed difference ranges widely around the truth, B frequently appears better, and only differences of about 8 points can be reliably detected.</p>
+<p class="note">Raise the paired-agreement slider: when both models are scored on the same cases and tend to succeed and fail together, their difference is much less noisy (Chapter 149). This is why “model A outperformed model B” on a few hundred cases is often not a reliable claim — and why expert-graded evaluations, where each case costs specialist time, lag behind development (Chapter 163).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+let sim = null;
+function required(p, d, rho) { return Math.ceil(2 * p * (1 - p) * (1 - rho) * (2.8 / d) ** 2); }
+function simulate() {
+  const p = +$("p").value, d = +$("d").value, n = +$("n").value, rho = +$("rho").value, pa = Math.min(0.999, p + d);
+  const out = [];
+  for (let r = 0; r < 400; r++) {
+    let a = 0, b = 0;
+    for (let i = 0; i < n; i++) {
+      const u = Math.random();
+      if (Math.random() < rho) { a += u < pa; b += u < p; }        // shared difficulty: same draw
+      else { a += u < pa; b += Math.random() < p; }
+    }
+    out.push((a - b) / n);
+  }
+  sim = { out, key: [p, d, n, rho].join() };
+}
+function draw() {
+  const p = +$("p").value, d = +$("d").value, n = +$("n").value, rho = +$("rho").value;
+  $("pV").textContent = (p * 100).toFixed(0) + "%"; $("dV").textContent = (d * 100).toFixed(1) + " pts"; $("nV").textContent = n; $("rhoV").textContent = rho.toFixed(2);
+  if (!sim || sim.key !== [p, d, n, rho].join()) simulate();
+  const se = Math.sqrt(2 * p * (1 - p) * (1 - rho) / n);
+  const lim = Math.max(0.12, d + 4 * se), bins = 48, w = 2 * lim / bins, H = Array(bins).fill(0);
+  sim.out.forEach(v => { const k = Math.floor((v + lim) / w); if (k >= 0 && k < bins) H[k]++; });
+  const X = v => 60 + (v + lim) / (2 * lim) * 620, mx = Math.max(...H, 1);
+  let s = `<title id="hT">Observed differences</title><rect x="60" y="20" width="620" height="220" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  s += `<rect x="${X(-1.96 * se)}" y="20" width="${X(1.96 * se) - X(-1.96 * se)}" height="220" fill="#9aa3b5" fill-opacity="0.25"/>`;
+  H.forEach((h, k) => { const x0 = -lim + k * w; s += `<rect x="${X(x0) + 1}" y="${240 - h / mx * 200}" width="${620 / bins - 2}" height="${h / mx * 200}" fill="${x0 + w / 2 < 0 ? "#d6215a" : "#1b4de4"}" fill-opacity="0.75"/>`; });
+  s += `<line x1="${X(d)}" y1="20" x2="${X(d)}" y2="240" stroke="#0e8f6e" stroke-width="3"/><line x1="${X(0)}" y1="20" x2="${X(0)}" y2="240" stroke="#0f1626"/>`;
+  [-lim, -lim / 2, 0, lim / 2, lim].forEach(v => s += `<text x="${X(v)}" y="258" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${(v * 100).toFixed(0)} pts</text>`);
+  s += `<text x="${X(-lim) + 8}" y="36" font-family="ui-sans-serif,system-ui" font-size="12" fill="#d6215a">B looks better</text><text x="${X(lim) - 8}" y="36" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12" fill="#1b4de4">A looks better</text>`;
+  $("hist").innerHTML = s;
+  const wrong = sim.out.filter(v => v < 0).length / 4, sig = sim.out.filter(v => v > 1.96 * se).length / 4;
+  $("out").textContent =
+    `standard error of the difference ≈ √(2p(1−p)(1−ρ)/n) = ${(se * 100).toFixed(2)} pts;  smallest reliably detectable difference ≈ 2.8 × SE = ${(2.8 * se * 100).toFixed(1)} pts\n` +
+    `cases needed to detect ${(d * 100).toFixed(1)} pts (5% significance, 80% power): ${d > 0 ? required(p, d, rho).toLocaleString() : "—"} per model\n` +
+    `in 400 simulated evaluations: B looked better ${wrong.toFixed(0)}% of the time; A was significantly better ${sig.toFixed(0)}% of the time`;
+}
+$("run").onclick = () => { sim = null; draw(); };
+["p", "d", "n", "rho"].forEach(id => $(id).addEventListener("change", draw));
+["p", "d", "n", "rho"].forEach(id => $(id).addEventListener("input", () => {
+  $("pV").textContent = (+$("p").value * 100).toFixed(0) + "%"; $("dV").textContent = (+$("d").value * 100).toFixed(1) + " pts"; $("nV").textContent = $("n").value; $("rhoV").textContent = (+$("rho").value).toFixed(2);
+}));
+draw();
+</script>
+</main>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A GAN in one dimension — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:35">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 111 · Lab L111.1</span></p>
+</div></header>
+<main>
+<h1>A GAN in one dimension</h1>
+<p class="lede">Real data: IOP-like readings. The generator turns random noise z into x = a·z + b. The discriminator scores each x with D(x) = σ(w₁x + w₂x² + c). They train in turns: D learns to tell real from fake, G learns to fool D. The generator never sees a real sample — only D’s gradient.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="data">Real data</label>
+      <select id="data"><option value="one">One peak: Normal(16, 2²)</option><option value="two">Two peaks: 14 and 24 (half each)</option></select></div>
+    <div class="control"><label for="lr">Learning rate <span class="val" id="lrV"></span></label><input type="range" id="lr" min="0.002" max="0.05" step="0.002" value="0.02"></div>
+    <div class="control" style="display:flex;gap:.5rem;align-items:end;flex-wrap:wrap">
+      <button id="go">Train 300 steps</button><button id="reset" class="ghost">Reset</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Real and generated distributions with the discriminator's output</title></svg>
+  <figcaption>Grey: real data. Cobalt: the generator’s current distribution. Crimson line: D(x), the discriminator’s belief that x is real (0 to 1). At equilibrium it flattens to 0.5 wherever the two overlap.</figcaption>
+</figure>
+<figure>
+  <svg id="loss" viewBox="0 0 720 170" role="img" aria-labelledby="lT"><title id="lT">Losses over training</title></svg>
+  <figcaption>Discriminator loss (crimson) and generator loss (cobalt). Dashed lines: the equilibrium values 2 ln 2 ≈ 1.39 and ln 2 ≈ 0.69. Neither curve simply goes down: two players chase each other.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">On one peak, the generator’s mean reaches the data within a few hundred steps — but its spread often first shrinks almost to a single point (every fake the same value) and then wanders above and below the true SD of 2 as the two players chase each other. Meanwhile the losses sit at the equilibrium values of Math Box 111.1 (D ≈ 1.39, G ≈ 0.69) even while the spread is badly wrong.</p>
+<p class="note">Switch to two peaks. This generator can only make one bell curve, so it can never match the data; it typically becomes a wide bell spanning both peaks, putting much of its mass in the empty valley between them — yet the losses again look like equilibrium. Real GANs have enough capacity to represent many modes yet often still cover only a few — mode collapse (Chapter 111) — and the loss curves, as here, do not reveal it. The same lesson holds on one peak: judging a GAN by its losses alone is unsafe; look at what it generates, and measure diversity directly (Chapter 107).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const gauss = () => Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
+const sig = z => 1 / (1 + Math.exp(-Math.max(-30, Math.min(30, z))));
+let G, D, hist, step;
+const S = 10, M = 16; // standardize x for the discriminator: u = (x − M)/S
+function real() { return $("data").value === "one" ? 16 + 2 * gauss() : (Math.random() < .5 ? 14 : 24) + 1.2 * gauss(); }
+function reset() { G = { a: 1, b: 8 }; D = { w1: 0, w2: 0, c: 0 }; hist = []; step = 0; draw(); }
+const Dx = x => { const u = (x - M) / S; return sig(D.w1 * u + D.w2 * u * u + D.c); };
+function train(n) {
+  const lr = +$("lr").value, B = 64;
+  for (let t = 0; t < n; t++) {
+    let g1 = 0, g2 = 0, gc = 0, dl = 0;
+    for (let i = 0; i < B; i++) {
+      for (const [x, y] of [[real(), 1], [G.a * gauss() + G.b, 0]]) {
+        const u = (x - M) / S, p = sig(D.w1 * u + D.w2 * u * u + D.c), e = p - y;
+        g1 += e * u; g2 += e * u * u; gc += e;
+        dl += -(y ? Math.log(p + 1e-9) : Math.log(1 - p + 1e-9));
+      }
+    }
+    D.w1 -= lr * 20 * g1 / B; D.w2 -= lr * 20 * g2 / B; D.c -= lr * 20 * gc / B;
+    let ga = 0, gb = 0, gl = 0;
+    for (let i = 0; i < B; i++) {
+      const z = gauss(), x = G.a * z + G.b, u = (x - M) / S, p = sig(D.w1 * u + D.w2 * u * u + D.c);
+      const dz = -(1 - p) * (D.w1 + 2 * D.w2 * u) / S;   // d(−ln p)/dx
+      ga += dz * z; gb += dz; gl += -Math.log(p + 1e-9);
+    }
+    G.a -= lr * 60 * ga / B; G.b -= lr * 60 * gb / B;
+    step++; hist.push([dl / B, gl / B]);
+  }
+}
+const pdf = (x, m, s) => Math.exp(-((x - m) ** 2) / (2 * s * s)) / (s * Math.sqrt(2 * Math.PI));
+function draw() {
+  $("lrV").textContent = (+$("lr").value).toFixed(3);
+  const two = $("data").value === "two";
+  const realPdf = x => two ? .5 * pdf(x, 14, 1.2) + .5 * pdf(x, 24, 1.2) : pdf(x, 16, 2);
+  const xs = Array.from({ length: 301 }, (_, i) => i / 10), X = x => 40 + x / 30 * 640;
+  const top = Math.max(0.2, ...xs.map(x => Math.max(realPdf(x), pdf(x, G.b, Math.abs(G.a) + 1e-3))));
+  const Y = v => 220 - Math.min(v, top) / top * 190;
+  let s = `<title id="pT">Distributions</title><line x1="40" y1="220" x2="680" y2="220" stroke="#b8c0cf"/>`;
+  s += `<path d="M ${X(0)} 220 ${xs.map(x => `L ${X(x)} ${Y(realPdf(x))}`).join(" ")} L ${X(30)} 220 Z" fill="#9aa3b5" fill-opacity="0.4"/>`;
+  s += `<path d="M ${X(0)} 220 ${xs.map(x => `L ${X(x)} ${Y(pdf(x, G.b, Math.abs(G.a) + 1e-3))}`).join(" ")} L ${X(30)} 220 Z" fill="#1b4de4" fill-opacity="0.3" stroke="#1b4de4" stroke-width="2"/>`;
+  s += `<line x1="40" y1="${220 - 95}" x2="680" y2="${220 - 95}" stroke="#d6215a" stroke-opacity="0.3" stroke-dasharray="3 4"/>`;
+  s += `<polyline fill="none" stroke="#d6215a" stroke-width="2.5" points="${xs.map(x => `${X(x)},${220 - Dx(x) * 190}`).join(" ")}"/>`;
+  [0, 10, 20, 30].forEach(v => s += `<text x="${X(v)}" y="238" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v} mmHg</text>`);
+  $("plot").innerHTML = s;
+  const n = hist.length, LX = i => 40 + (n > 1 ? i / (n - 1) : 0) * 640, LY = v => 150 - Math.min(v, 3) / 3 * 130;
+  let l = `<title id="lT">Losses</title><rect x="40" y="20" width="640" height="130" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  l += `<line x1="40" y1="${LY(1.386)}" x2="680" y2="${LY(1.386)}" stroke="#d6215a" stroke-dasharray="4 4" stroke-opacity="0.6"/><line x1="40" y1="${LY(0.693)}" x2="680" y2="${LY(0.693)}" stroke="#1b4de4" stroke-dasharray="4 4" stroke-opacity="0.6"/>`;
+  if (n > 1) {
+    const sm = k => hist.map((_, i) => { const a = Math.max(0, i - 9), seg = hist.slice(a, i + 1); return seg.reduce((q, h) => q + h[k], 0) / seg.length; });
+    l += `<polyline fill="none" stroke="#d6215a" stroke-width="2" points="${sm(0).map((v, i) => `${LX(i)},${LY(v)}`).join(" ")}"/>`;
+    l += `<polyline fill="none" stroke="#1b4de4" stroke-width="2" points="${sm(1).map((v, i) => `${LX(i)},${LY(v)}`).join(" ")}"/>`;
+  }
+  $("loss").innerHTML = l;
+  const last = hist.slice(-50), avg = k => last.length ? last.reduce((q, h) => q + h[k], 0) / last.length : NaN;
+  $("out").textContent =
+    `step ${step}:  generator x = ${Math.abs(G.a).toFixed(2)}·z + ${G.b.toFixed(2)}  (real: ${two ? "peaks at 14 and 24" : "mean 16, SD 2"})\n` +
+    `D(16) = ${Dx(16).toFixed(2)}   D(${G.b.toFixed(0)}) = ${Dx(G.b).toFixed(2)}\n` +
+    `recent losses: discriminator ${avg(0).toFixed(2)} (equilibrium 1.39), generator ${avg(1).toFixed(2)} (equilibrium 0.69)`;
+}
+$("go").onclick = () => { train(300); draw(); };
+$("reset").onclick = reset;
+$("data").addEventListener("change", reset);
+$("lr").addEventListener("input", draw);
+reset();
+</script>
+</main></body></html>

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learn a distribution, then sample — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:28">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 107, 170 · Lab L107.1</span></p>
+</div></header>
+<main>
+<h1>Generating new data: learn a distribution, then sample</h1>
+<p class="lede">The simplest generative model: fit a normal distribution to IOP readings, then produce new readings by transforming random noise. Every image generator follows the same pattern — noise in, learned transformation, sample out — with a far richer transformation.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="mu">Learned mean μ <span class="val" id="muV"></span></label><input type="range" id="mu" min="10" max="25" step="0.1" value="15.5"></div>
+<div class="control"><label for="sd">Learned SD σ <span class="val" id="sdV"></span></label><input type="range" id="sd" min="0.5" max="6" step="0.1" value="2.5"></div>
+<div class="control"><label for="z">One noise draw z <span class="val" id="zV"></span></label><input type="range" id="z" min="-3" max="3" step="0.1" value="0.8"></div>
+<div class="control" style="display:flex;gap:.4rem;align-items:end"><button id="g1">Generate 1</button><button id="g1000" class="ghost">Generate 1,000</button><button id="clr" class="ghost">Clear</button></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Histogram of generated IOP values with the learned density</title></svg><figcaption>Bars: generated readings. Curve: the learned density. Crimson: the reading made from your chosen z.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">z = 0.8 → 15.5 + 2.5 × 0.8 = 17.5 mmHg; z = −1.2 → 12.5 mmHg (Math Box 107.1). Each belongs to no real patient.</p>
+<p class="note">A generator can only produce what its distribution allows: this one never makes an IOP of 45, however many samples it draws, and it cannot know about a subgroup it never saw. The same limits, less visibly, apply to synthetic images and text (Chapters 107, 170).</p>
+<script>
+const $ = id => document.getElementById(id);
+const gauss = () => Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
+let S = [];
+function draw() {
+  const mu = +$("mu").value, sd = +$("sd").value, z = +$("z").value; ["mu", "sd", "z"].forEach(k => $(k + "V").textContent = (+$(k).value).toFixed(1));
+  const X = v => 40 + (v - 0) / 35 * 640, bins = 70, w = 0.5, H = Array(bins).fill(0); S.forEach(v => { const k = Math.floor(v / w); if (k >= 0 && k < bins) H[k]++; });
+  const pdf = v => Math.exp(-((v - mu) ** 2) / (2 * sd * sd)) / (sd * Math.sqrt(2 * Math.PI)), mxp = pdf(mu), mxH = Math.max(1, ...H) / (S.length * w || 1);
+  const top = Math.max(mxp, mxH) * 1.1, Y = v => 220 - v / top * 190;
+  let s = `<title id="pT">Samples</title><line x1="40" y1="220" x2="680" y2="220" stroke="#b8c0cf"/>`;
+  if (S.length) H.forEach((h, k) => s += `<rect x="${X(k * w) + .5}" y="${Y(h / (S.length * w))}" width="${640 / 70 - 1}" height="${220 - Y(h / (S.length * w))}" fill="#1b4de4" fill-opacity="0.55"/>`);
+  const xs = Array.from({ length: 351 }, (_, i) => i / 10);
+  s += `<polyline fill="none" stroke="#0e8f6e" stroke-width="2.5" points="${xs.map(v => `${X(v)},${Y(pdf(v))}`).join(" ")}"/>`;
+  const x = mu + sd * z; s += `<line x1="${X(x)}" y1="30" x2="${X(x)}" y2="220" stroke="#d6215a" stroke-width="2.5"/>`;
+  for (let v = 0; v <= 35; v += 5) s += `<text x="${X(v)}" y="238" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`;
+  $("plot").innerHTML = s;
+  const m = S.length ? S.reduce((a, b) => a + b) / S.length : NaN, ss = S.length > 1 ? Math.sqrt(S.reduce((a, v) => a + (v - m) ** 2, 0) / (S.length - 1)) : NaN;
+  $("out").textContent = `x = μ + σz = ${mu.toFixed(1)} + ${sd.toFixed(1)} × ${z.toFixed(1)} = ${x.toFixed(1)} mmHg\n${S.length} generated: mean ${isNaN(m) ? "—" : m.toFixed(2)}, SD ${isNaN(ss) ? "—" : ss.toFixed(2)}, max ${S.length ? Math.max(...S).toFixed(1) : "—"}`;
+}
+const gen = n => { const mu = +$("mu").value, sd = +$("sd").value; for (let i = 0; i < n; i++) S.push(mu + sd * gauss()); draw(); };
+$("g1").onclick = () => gen(1); $("g1000").onclick = () => gen(1000); $("clr").onclick = () => { S = []; draw(); };
+["mu", "sd"].forEach(k => $(k).addEventListener("input", () => { S = []; draw(); })); $("z").addEventListener("input", draw); draw();
+</script></main></body></html>

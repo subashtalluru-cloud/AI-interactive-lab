@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The average hides the weakest point — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:112">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 157 · Lab L157.1</span></p>
+</div></header>
+<main>
+<h1>The average hides the weakest point</h1>
+<p class="lede">A red team runs 500 jailbreak attempts across ten technique families. The overall success rate looks low. But an attacker does not pick families at random — they use whatever works best, and they try more than once.</p>
+
+<div class="panel">
+  <p style="font-family:var(--sans);font-size:.9rem;margin:0 0 .4rem">Successes out of 50 attempts per family (edit):</p>
+  <div id="fam" style="display:grid;gap:.4rem;grid-template-columns:repeat(auto-fit,minmax(9rem,1fr));font-family:var(--sans);font-size:.88rem"></div>
+  <div class="controls" style="margin-top:.6rem">
+    <div class="control"><label for="tries">Attacker’s attempts with the best family <span class="val" id="triesV"></span></label><input type="range" id="tries" min="1" max="30" step="1" value="5"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="bars" viewBox="0 0 720 260" role="img" aria-labelledby="bT"><title id="bT">Success rate by technique family with the overall average</title></svg>
+  <figcaption>Bars: success rate per family, with 95% intervals (50 attempts each is not many). Dashed line: the overall average that a single headline number would report.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s numbers: 35 of 500 overall (7%), but encoding attacks succeed 24% of the time; five encoding attempts give 1 − 0.76⁵ ≈ 75% chance of at least one success (Math Box 157.1).</p>
+<p class="note">Report worst-family and repeated-attempt figures, not just the mean. Note too how wide each family’s interval is at 50 attempts: 12/50 is compatible with anything from about 14% to 37%. The same arithmetic as prompt injection (Chapter 156) and red teaming (Chapter 161): what matters is what a persistent adversary achieves.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const NAMES = ["role-play", "encoding", "multi-turn", "persona", "hypothetical", "translation", "obfuscation", "authority", "payload split", "other"];
+let K = [2, 12, 9, 3, 3, 2, 2, 1, 1, 0];
+function buildFam() {
+  $("fam").innerHTML = NAMES.map((n, i) => `<label>${n} <input type="number" min="0" max="50" value="${K[i]}" data-i="${i}" style="width:3.8rem;font-family:var(--mono)"></label>`).join("");
+  $("fam").querySelectorAll("input").forEach(inp => inp.addEventListener("input", () => { K[+inp.dataset.i] = Math.max(0, Math.min(50, +inp.value || 0)); draw(); }));
+}
+function wilson(k, n) { const z = 1.96, p = k / n, d = 1 + z * z / n, c = (p + z * z / (2 * n)) / d, h = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d; return [Math.max(0, c - h), Math.min(1, c + h)]; }
+function draw() {
+  const tries = +$("tries").value; $("triesV").textContent = tries;
+  const tot = K.reduce((a, b) => a + b), avg = tot / 500, best = K.indexOf(Math.max(...K)), pb = K[best] / 50;
+  const X = i => 70 + i * 62, Y = v => 220 - v / 0.5 * 200;
+  let s = `<title id="bT">Families</title><line x1="60" y1="220" x2="690" y2="220" stroke="#b8c0cf"/>`;
+  [0, .1, .2, .3, .4, .5].forEach(v => s += `<text x="54" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">${v * 100}%</text>`);
+  K.forEach((k, i) => {
+    const p = k / 50, [lo, hi] = wilson(k, 50);
+    s += `<rect x="${X(i)}" y="${Y(p)}" width="40" height="${220 - Y(p)}" fill="${i === best ? "#d6215a" : "#1b4de4"}" fill-opacity="0.8"/>`;
+    s += `<line x1="${X(i) + 20}" y1="${Y(Math.min(hi, .5))}" x2="${X(i) + 20}" y2="${Y(lo)}" stroke="#0f1626" stroke-width="1.5"/>`;
+    s += `<text x="${X(i) + 20}" y="238" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="9" fill="#4a5468">${NAMES[i]}</text>`;
+  });
+  s += `<line x1="60" y1="${Y(avg)}" x2="690" y2="${Y(avg)}" stroke="#e0930b" stroke-width="2" stroke-dasharray="6 4"/><text x="690" y="${Y(avg) - 6}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#b06f00">overall ${(avg * 100).toFixed(1)}%</text>`;
+  $("bars").innerHTML = s;
+  const [lo, hi] = wilson(K[best], 50);
+  $("out").textContent =
+    `overall: ${tot} / 500 = ${(avg * 100).toFixed(1)}%\n` +
+    `worst family: ${NAMES[best]} ${K[best]}/50 = ${(pb * 100).toFixed(0)}%  (95% interval ${(lo * 100).toFixed(0)}–${(hi * 100).toFixed(0)}%)\n` +
+    `attacker using ${NAMES[best]} ${tries} times: 1 − (1 − ${pb.toFixed(2)})^${tries} = ${((1 - (1 - pb) ** tries) * 100).toFixed(0)}% chance of at least one success`;
+}
+$("tries").addEventListener("input", draw);
+buildFam(); draw();
+</script>
+</main></body></html>

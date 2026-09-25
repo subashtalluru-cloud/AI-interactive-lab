@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What fits on a clinic workstation? — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:357">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 88, 100, 169 · Lab L169.1</span></p>
+</div></header>
+<main>
+<h1>What fits on a clinic workstation?</h1>
+<p class="lede">Local models keep patient data on site. Whether one fits depends on the size of the weights, and how fast it runs depends on how quickly those weights can be read from memory for every token.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="N">Parameters (billions) <span class="val" id="NV"></span></label><input type="range" id="N" min="0.5" max="120" step="0.5" value="3"></div>
+<div class="control"><label for="bits">Bits per weight</label><select id="bits"><option>16</option><option>8</option><option selected>4</option></select></div>
+<div class="control"><label for="mem">Device memory (GB) <span class="val" id="memV"></span></label><input type="range" id="mem" min="4" max="192" step="4" value="16"></div>
+<div class="control"><label for="bw">Memory bandwidth (GB/s) <span class="val" id="bwV"></span></label><input type="range" id="bw" min="20" max="1000" step="10" value="100"></div>
+<div class="control"><label for="kv">KV cache and overhead (GB) <span class="val" id="kvV"></span></label><input type="range" id="kv" min="0" max="16" step="0.25" value="0.5"></div>
+<div class="control"><label for="D">Training tokens (trillions) <span class="val" id="DV"></span></label><input type="range" id="D" min="0.1" max="40" step="0.1" value="10"></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">3B at 4 bits ≈ 1.5 GB; at 100 GB/s about 15 ms per token, ~65 tokens/s. 70B at 4 bits ≈ 35 GB and ~3 tokens/s. Training the 3B model on 10T tokens costs about 1.8 × 10²³ FLOPs (Math Box 169.1).</p>
+<p class="note">Small models move cost from inference to training: they are over-trained far beyond the compute-optimal ratio so that every later use is cheap. For many clinical extraction and summarization tasks, a well-evaluated small local model can be the safer and cheaper choice (Chapters 84, 88, 100, 169).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const N = +$("N").value * 1e9, bits = +$("bits").value, mem = +$("mem").value, bw = +$("bw").value, kv = +$("kv").value, D = +$("D").value * 1e12;
+  $("NV").textContent = $("N").value; $("memV").textContent = mem; $("bwV").textContent = bw; $("kvV").textContent = kv; $("DV").textContent = $("D").value;
+  const w = N * bits / 8 / 1e9, fits = w + kv <= mem, ms = w / bw * 1000;
+  $("out").textContent = `weights: ${(N / 1e9).toFixed(1)}e9 × ${bits / 8} bytes = ${w.toFixed(1)} GB  + ${kv} GB overhead → ${fits ? "FITS" : "DOES NOT FIT"} in ${mem} GB\n` +
+    `per token: ${w.toFixed(1)} GB ÷ ${bw} GB/s = ${ms.toFixed(1)} ms → about ${(1000 / ms).toFixed(0)} tokens/s (memory-bound ceiling)\n` +
+    `training compute 6ND = 6 × ${(N / 1e9).toFixed(1)}e9 × ${(D / 1e12).toFixed(1)}e12 = ${(6 * N * D).toExponential(2)} FLOPs;  tokens per parameter ${(D / N).toFixed(0)} (compute-optimal ≈ 20)`;
+}
+["N", "mem", "bw", "kv", "D"].forEach(k => $(k).addEventListener("input", draw)); $("bits").addEventListener("change", draw); draw();
+</script></main></body></html>

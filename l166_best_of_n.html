@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Best-of-N and verifiers — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:3">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 92, 166 · Lab L166.1</span></p>
+</div></header>
+<main>
+<h1>Best-of-N: more samples, if you can tell which is right</h1>
+<p class="lede">Sample N answers and keep the one a verifier scores highest. With a perfect verifier, accuracy climbs toward 1. With a learned verifier that is sometimes fooled, it rises, flattens and can fall — more samples give more chances for a convincing wrong answer to win.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="p">Chance one sample is correct <span class="val" id="pV"></span></label><input type="range" id="p" min="0.02" max="0.9" step="0.01" value="0.3"></div>
+    <div class="control"><label for="sep">How well the learned verifier separates right from wrong <span class="val" id="sepV"></span></label><input type="range" id="sep" min="0" max="4" step="0.1" value="1.5"></div>
+    <div class="control"><label for="fool">Fraction of wrong answers that look convincing <span class="val" id="foolV"></span></label><input type="range" id="fool" min="0" max="0.3" step="0.01" value="0.1"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 300" role="img" aria-labelledby="pT"><title id="pT">Accuracy against number of samples</title></svg>
+  <figcaption>Horizontal axis: N on a doubling scale (1, 2, 4 … 256), i.e. cost. Cobalt: perfect verifier, 1 − (1 − p)ᴺ. Crimson: learned verifier (simulated, 3,000 trials per point).</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">With a perfect verifier and p = 0.3: 0.30 at N = 1, 0.76 at N = 4, 0.997 at N = 16. Each doubling of cost buys less — diminishing returns.</p>
+<p class="note">Raise the fraction of convincing wrong answers and watch the crimson curve peak and turn down: the reward-model over-optimization of Chapter 92, now at inference time. Test-time compute is only as good as the signal used to choose (Chapter 166) — unit tests and exact answer checks make excellent verifiers; learned judges of free-text clinical reasoning are far less reliable.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const gauss = () => Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
+const NS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
+function simulate(p, sep, fool) {
+  return NS.map(N => {
+    let ok = 0;
+    for (let t = 0; t < 3000; t++) {
+      let best = -Infinity, bestOk = false;
+      for (let i = 0; i < N; i++) {
+        const right = Math.random() < p;
+        const s = right ? sep + gauss() : (Math.random() < fool ? sep + 1.5 + gauss() : gauss());
+        if (s > best) { best = s; bestOk = right; }
+      }
+      ok += bestOk;
+    }
+    return ok / 3000;
+  });
+}
+let t;
+function draw() {
+  const p = +$("p").value, sep = +$("sep").value, fool = +$("fool").value;
+  $("pV").textContent = p.toFixed(2); $("sepV").textContent = sep.toFixed(1); $("foolV").textContent = (fool * 100).toFixed(0) + "%";
+  const perfect = NS.map(N => 1 - (1 - p) ** N), learned = simulate(p, sep, fool);
+  const X = i => 70 + i * 75, Y = v => 260 - v * 230;
+  let s = `<title id="pT">Accuracy vs N</title><rect x="50" y="30" width="640" height="230" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  [0, .25, .5, .75, 1].forEach(v => s += `<line x1="50" y1="${Y(v)}" x2="690" y2="${Y(v)}" stroke="#e3e7ef"/><text x="44" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  NS.forEach((N, i) => s += `<text x="${X(i)}" y="278" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${N}</text>`);
+  const line = (v, c) => `<polyline fill="none" stroke="${c}" stroke-width="3" points="${v.map((a, i) => `${X(i)},${Y(a)}`).join(" ")}"/>` + v.map((a, i) => `<circle cx="${X(i)}" cy="${Y(a)}" r="4" fill="${c}"/>`).join("");
+  s += line(perfect, "#1b4de4") + line(learned, "#d6215a");
+  s += `<text x="370" y="296" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">samples N (cost)</text>`;
+  $("plot").innerHTML = s;
+  const peak = learned.indexOf(Math.max(...learned));
+  $("out").textContent =
+    `perfect verifier:  N=1 ${perfect[0].toFixed(3)}   N=4 ${perfect[2].toFixed(3)}   N=16 ${perfect[4].toFixed(3)}   N=64 ${perfect[6].toFixed(3)}\n` +
+    `learned verifier:  N=1 ${learned[0].toFixed(3)}   N=4 ${learned[2].toFixed(3)}   N=16 ${learned[4].toFixed(3)}   N=256 ${learned[8].toFixed(3)}   (best at N = ${NS[peak]})`;
+}
+["p", "sep", "fool"].forEach(id => $(id).addEventListener("input", () => { clearTimeout(t); t = setTimeout(draw, 60); }));
+draw();
+</script>
+</main></body></html>

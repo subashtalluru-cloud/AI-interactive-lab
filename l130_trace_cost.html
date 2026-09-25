@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What an agent’s trace costs — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:67">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 130, 131 · Lab L130.1</span></p>
+</div></header>
+<main>
+<h1>What an agent’s trace costs</h1>
+<p class="lede">An agent calls the model once per step, and each call rereads everything so far: instructions, tool descriptions, and every earlier proposal and observation. Cost grows with the square of the number of steps.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="c0">Initial context (tokens) <span class="val" id="c0V"></span></label><input type="range" id="c0" min="500" max="20000" step="500" value="2000"></div>
+<div class="control"><label for="d">Tokens added per step <span class="val" id="dV"></span></label><input type="range" id="d" min="100" max="5000" step="100" value="800"></div>
+<div class="control"><label for="n">Steps <span class="val" id="nV"></span></label><input type="range" id="n" min="1" max="100" step="1" value="10"></div>
+<div class="control"><label for="price">Price per million input tokens ($) <span class="val" id="priceV"></span></label><input type="range" id="price" min="0.1" max="15" step="0.1" value="3"></div>
+<div class="control"><label><input type="checkbox" id="cache"> Prompt caching (reread prefix at 10% cost)</label></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 240" role="img" aria-labelledby="pT"><title id="pT">Tokens read per call and cumulative</title></svg><figcaption>Bars: tokens read by each call. Line: cumulative tokens.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">2,000 initial tokens, 800 added per step, 10 calls: 10 × 2,000 + 800 × (0 + 1 + … + 9) = 20,000 + 36,000 = 56,000 tokens read (Math Box 130.1).</p>
+<p class="note">Double the steps and the cost roughly quadruples. Long agent runs are managed by summarizing or pruning the trace, caching the fixed prefix, and delegating sub-tasks to fresh contexts — each with the usual risk of dropping something that mattered (Chapters 129–131). Prices are illustrative.</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [c0, d, n, pr] = ["c0", "d", "n", "price"].map(i => +$(i).value), cache = $("cache").checked; ["c0", "d", "n"].forEach(i => $(i + "V").textContent = $(i).value); $("priceV").textContent = pr.toFixed(1);
+  const calls = Array.from({ length: n }, (_, k) => c0 + d * k), cum = []; calls.reduce((a, v, i) => (cum[i] = a + v), 0);
+  const tot = cum[n - 1], billed = cache ? calls.reduce((a, v, k) => a + (k ? (v - d) * 0.1 + d : v), 0) : tot;
+  const X = k => 60 + k / n * 620, Ym = Math.max(...calls), Yc = v => 210 - v / tot * 180, Yb = v => 210 - v / Ym * 180;
+  let s = `<title id="pT">Trace</title><line x1="60" y1="210" x2="680" y2="210" stroke="#b8c0cf"/>`;
+  calls.forEach((v, k) => s += `<rect x="${X(k) + 1}" y="${Yb(v) * 0.5 + 105}" width="${620 / n - 2}" height="${(210 - Yb(v)) * 0.5}" fill="#1b4de4" fill-opacity="0.6"/>`);
+  s += `<polyline fill="none" stroke="#d6215a" stroke-width="3" points="${cum.map((v, k) => `${X(k + 1)},${Yc(v)}`).join(" ")}"/>`;
+  $("plot").innerHTML = s;
+  $("out").textContent = `total tokens read = ${n} × ${c0.toLocaleString()} + ${d} × (0 + … + ${n - 1}) = ${(n * c0).toLocaleString()} + ${(d * n * (n - 1) / 2).toLocaleString()} = ${tot.toLocaleString()}\nlast call reads ${calls[n - 1].toLocaleString()} tokens${calls[n - 1] > 200000 ? " — beyond many context windows" : ""}\ncost ≈ $${(billed / 1e6 * pr).toFixed(3)}${cache ? " with caching" : ""}  (without caching $${(tot / 1e6 * pr).toFixed(3)})`;
+}
+["c0", "d", "n", "price"].forEach(i => $(i).addEventListener("input", draw)); $("cache").addEventListener("change", draw); draw();
+</script></main></body></html>

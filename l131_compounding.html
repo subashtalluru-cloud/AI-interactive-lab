@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How errors compound — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:68">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 131, 139, 173, 128 · Lab L131.1</span></p>
+</div></header>
+
+<main>
+<h1>How errors compound over many steps</h1>
+<p class="lede">An agent that is right 95% of the time on each action sounds reliable. Over twenty actions, it usually is not. Set the per-step reliability, the number of steps, and how many errors your checks catch.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="p">Per-step success <span class="val" id="pV"></span></label>
+      <input type="range" id="p" min="0.80" max="0.999" step="0.001" value="0.95"></div>
+    <div class="control"><label for="n">Number of steps <span class="val" id="nV"></span></label>
+      <input type="range" id="n" min="1" max="60" step="1" value="20"></div>
+    <div class="control"><label for="c">Fraction of errors caught and fixed <span class="val" id="cV"></span></label>
+      <input type="range" id="c" min="0" max="0.95" step="0.05" value="0"></div>
+    <div class="control" style="align-self:end"><button id="sim">Simulate 200 runs</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="curve" viewBox="0 0 720 300" role="img" aria-labelledby="cT">
+    <title id="cT">Probability that every step succeeds, against number of steps</title>
+  </svg>
+  <figcaption>Crimson: without checking. Green: with checking at the chosen catch rate. The dot marks the chosen number of steps.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<figure>
+  <svg id="runs" viewBox="0 0 720 220" role="img" aria-labelledby="rT">
+    <title id="rT">Two hundred simulated runs, each a row of steps; failed runs marked where they first went wrong</title>
+  </svg>
+  <figcaption>Each short line is one simulated run (with checking applied). Green runs finished; crimson runs stop at the step where an uncaught error occurred.</figcaption>
+</figure>
+
+<h2>What to notice</h2>
+<p class="finding">At 95% per step and 20 steps, only about 36% of runs succeed end to end. Catching half the errors raises this to about 60% — more than a model upgrade from 95% to 97% per step would.</p>
+<p class="note">This is why reliable agents depend on checks anchored to something outside the model — tests, tool results, sources, people — rather than on a model that never errs (Chapter 131). The same multiplication explains vanishing gradients (Chapter 54) and drift in imagined plans (Chapter 175).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+let simRuns = null;
+
+function draw() {
+  const p = +$("p").value, n = +$("n").value, c = +$("c").value;
+  const pc = 1 - (1 - p) * (1 - c);
+  $("pV").textContent = p.toFixed(3); $("nV").textContent = n; $("cV").textContent = (c * 100).toFixed(0) + "%";
+
+  const X = k => 50 + (k / 60) * 640, Y = v => 260 - v * 230;
+  let s = `<title id="cT">Success probability against steps</title>`;
+  s += `<rect x="50" y="30" width="640" height="230" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  [0, .25, .5, .75, 1].forEach(v => s += `<line x1="50" y1="${Y(v)}" x2="690" y2="${Y(v)}" stroke="#e3e7ef"/><text x="42" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  [0, 10, 20, 30, 40, 50, 60].forEach(k => s += `<text x="${X(k)}" y="278" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${k}</text>`);
+  const line = (q, col) => `<polyline fill="none" stroke="${col}" stroke-width="2.5" points="${Array.from({ length: 61 }, (_, k) => `${X(k)},${Y(q ** k)}`).join(" ")}"/>`;
+  s += line(p, "#d6215a");
+  if (c > 0) s += line(pc, "#0e8f6e");
+  s += `<line x1="${X(n)}" y1="30" x2="${X(n)}" y2="260" stroke="#1b4de4" stroke-dasharray="3 4"/>`;
+  s += `<circle cx="${X(n)}" cy="${Y(p ** n)}" r="6" fill="#d6215a"/>`;
+  if (c > 0) s += `<circle cx="${X(n)}" cy="${Y(pc ** n)}" r="6" fill="#0e8f6e"/>`;
+  s += `<text x="370" y="296" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">number of steps</text>`;
+  $("curve").innerHTML = s;
+
+  $("out").textContent =
+    `without checking: ${p.toFixed(3)}^${n} = ${(p ** n).toFixed(3)}\n` +
+    `with checking:    effective per-step success ${pc.toFixed(4)};  ${pc.toFixed(4)}^${n} = ${(pc ** n).toFixed(3)}\n` +
+    `expected step of first uncaught error ≈ ${(1 / (1 - pc)).toFixed(1)}`;
+
+  // simulated runs
+  if (!simRuns || simRuns.n !== n || simRuns.pc !== pc) simulate(n, pc);
+  let r = `<title id="rT">Simulated runs</title>`;
+  simRuns.data.forEach((fail, i) => {
+    const col = i % 40, row = Math.floor(i / 40);
+    const x0 = 20 + col * 17.5, y0 = 20 + row * 38, len = 30;
+    const stop = fail < 0 ? len : (fail / n) * len;
+    r += `<line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y0 + stop}" stroke="${fail < 0 ? '#0e8f6e' : '#d6215a'}" stroke-width="3" stroke-linecap="round"/>`;
+  });
+  const ok = simRuns.data.filter(v => v < 0).length;
+  r += `<text x="360" y="214" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${ok} of 200 runs succeeded (${(ok / 2).toFixed(0)}%)</text>`;
+  $("runs").innerHTML = r;
+}
+
+function simulate(n, pc) {
+  const data = [];
+  for (let i = 0; i < 200; i++) {
+    let fail = -1;
+    for (let k = 1; k <= n; k++) if (Math.random() > pc) { fail = k; break; }
+    data.push(fail);
+  }
+  simRuns = { n, pc, data };
+}
+
+["p", "n", "c"].forEach(id => $(id).addEventListener("input", draw));
+$("sim").addEventListener("click", () => { simRuns = null; draw(); });
+draw();
+</script>
+</main>
+</body>
+</html>

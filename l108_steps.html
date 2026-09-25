@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The cost of generating one piece at a time — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:30">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 108 · Lab L108.1</span></p>
+</div></header>
+<main>
+<h1>The cost of generating one piece at a time</h1>
+<p class="lede">An autoregressive generator makes one piece per step, and each step must wait for the one before. For text, pieces are words. For raw images and audio there are far more pieces — unless the data are first compressed into tokens.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="side">Image side (pixels) <span class="val" id="sideV"></span></label><input type="range" id="side" min="32" max="1024" step="32" value="256"></div>
+<div class="control"><label for="grid">Visual-token grid side <span class="val" id="gridV"></span></label><input type="range" id="grid" min="8" max="64" step="4" value="32"></div>
+<div class="control"><label for="sec">Audio seconds <span class="val" id="secV"></span></label><input type="range" id="sec" min="1" max="60" step="1" value="1"></div>
+<div class="control"><label for="ms">Time per sequential step (ms) <span class="val" id="msV"></span></label><input type="range" id="ms" min="1" max="50" step="1" value="10"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 240" role="img" aria-labelledby="pT"><title id="pT">Sequential steps for different representations, log scale</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">A 256 × 256 colour image pixel by pixel: 196,608 steps. As a 32 × 32 grid of codes: 1,024 steps — about 190× fewer. One second of 16 kHz audio: 16,000 steps; a paragraph of text: about 100 (Math Box 108.1).</p>
+<p class="note">This is why modern image, video and audio generators work on compressed tokens or latents (VQ-VAE codes, latent diffusion) rather than raw samples — the same move as tokenizing text into subwords rather than characters (Chapters 79, 108, 113).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const side = +$("side").value, grid = +$("grid").value, sec = +$("sec").value, ms = +$("ms").value; ["side", "grid", "sec", "ms"].forEach(k => $(k + "V").textContent = $(k).value);
+  const R = [["Image, pixel by pixel", side * side * 3, "#d6215a"], ["Image, visual tokens", grid * grid, "#1b4de4"], ["Audio, sample by sample", 16000 * sec, "#e0930b"], ["Text paragraph", 100, "#0e8f6e"]];
+  const W = v => Math.log10(v) / 7 * 460;
+  let s = `<title id="pT">Steps</title>`;
+  R.forEach(([l, n, c], i) => s += `<text x="200" y="${40 + i * 50}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${l}</text><rect x="210" y="${22 + i * 50}" width="${W(n)}" height="28" fill="${c}"/><text x="${216 + W(n)}" y="${41 + i * 50}" font-family="ui-monospace,monospace" font-size="11" fill="#0f1626">${n.toLocaleString()}</text>`);
+  $("plot").innerHTML = s;
+  const t = n => { const x = n * ms / 1000; return x < 60 ? x.toFixed(1) + " s" : (x / 60).toFixed(1) + " min"; };
+  $("out").textContent = R.map(([l, n]) => `${l.padEnd(26)} ${n.toLocaleString().padStart(12)} steps → ${t(n)}`).join("\n") + `\npixel/token ratio: ${(side * side * 3 / (grid * grid)).toFixed(0)}×`;
+}
+["side", "grid", "sec", "ms"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

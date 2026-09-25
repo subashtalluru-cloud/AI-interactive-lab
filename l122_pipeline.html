@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pipeline or native — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:53">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 122 · Lab L122.1</span></p>
+</div></header>
+<main>
+<h1>Pipeline or native: why a chain of models loses time and information</h1>
+<p class="lede">A voice assistant can be three models in a row — speech-to-text, a language model, text-to-speech — or one model that hears and speaks directly. Add up the delays, and notice what the middle model never hears.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="asr">Speech recognition delay (s) <span class="val" id="asrV"></span></label><input type="range" id="asr" min="0.1" max="2" step="0.05" value="0.5"></div>
+<div class="control"><label for="llm">Language model time to first token (s) <span class="val" id="llmV"></span></label><input type="range" id="llm" min="0.1" max="3" step="0.05" value="0.5"></div>
+<div class="control"><label for="tts">Speech synthesis of first sentence (s) <span class="val" id="ttsV"></span></label><input type="range" id="tts" min="0.1" max="2" step="0.05" value="0.3"></div>
+<div class="control"><label for="nat">Native model response time (s, vendor-reported) <span class="val" id="natV"></span></label><input type="range" id="nat" min="0.1" max="2" step="0.01" value="0.32"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 140" role="img" aria-labelledby="pT"><title id="pT">Latency of pipeline versus native model</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">0.5 + 0.5 + 0.3 = 1.3 s for the pipeline; about 0.32 s reported for a native speech model (Math Box 122.1; the native figure is vendor-reported).</p>
+<p class="note">The pipeline’s language model sees only a transcript: no tone, emphasis, hesitation or second speaker. Native models keep that information — at the cost of thousands of audio tokens per minute (Chapters 121, 122).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [a, l, t, n] = ["asr", "llm", "tts", "nat"].map(k => +$(k).value); ["asr", "llm", "tts", "nat"].forEach(k => $(k + "V").textContent = (+$(k).value).toFixed(2));
+  const W = v => v / Math.max(a + l + t, n) * 520;
+  let s = `<title id="pT">Latency</title><text x="130" y="42" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12">pipeline</text>`; let x = 140;
+  [[a, "#1b4de4", "ASR"], [l, "#0e8f6e", "LLM"], [t, "#e0930b", "TTS"]].forEach(([v, c, lab]) => { s += `<rect x="${x}" y="22" width="${W(v)}" height="30" fill="${c}"/><text x="${x + 4}" y="42" font-family="ui-sans-serif,system-ui" font-size="11" fill="#fff">${lab}</text>`; x += W(v); });
+  s += `<text x="130" y="102" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12">native</text><rect x="140" y="82" width="${W(n)}" height="30" fill="#6c3fd1"/>`;
+  $("plot").innerHTML = s;
+  $("out").textContent = `pipeline: ${a.toFixed(2)} + ${l.toFixed(2)} + ${t.toFixed(2)} = ${(a + l + t).toFixed(2)} s\nnative: ${n.toFixed(2)} s  (${((a + l + t) / n).toFixed(1)}× faster)\ninformation reaching the language model in the pipeline: words only`;
+}
+["asr", "llm", "tts", "nat"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

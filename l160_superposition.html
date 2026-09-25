@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Superposition — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:117">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 160, 178 · Lab L160.1</span></p>
+</div></header>
+<main>
+<h1>Superposition: more features than dimensions</h1>
+<p class="lede">A layer with two dimensions can still represent three features if they point in different directions and are rarely active together. The cost is interference when they are: each reads the others as noise.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label><input type="checkbox" id="a1" checked> Feature 1 active</label></div>
+<div class="control"><label><input type="checkbox" id="a2" checked> Feature 2 active</label></div>
+<div class="control"><label><input type="checkbox" id="a3"> Feature 3 active</label></div>
+<div class="control"><label for="n">Number of features packed in 2-D <span class="val" id="nV"></span></label><input type="range" id="n" min="2" max="8" step="1" value="3"></div>
+<div class="control"><label for="p">Probability each feature is active <span class="val" id="pV"></span></label><input type="range" id="p" min="0.01" max="0.5" step="0.01" value="0.05"></div>
+</div></div>
+<figure><svg id="plot" viewBox="-1.8 -1.8 3.6 3.6" role="img" aria-labelledby="pT" style="max-width:420px;display:block;margin:auto;background:#f3f5f9;border-radius:8px"><title id="pT">Feature directions and the activation vector</title></svg>
+<figcaption>Coloured arrows: feature directions. Black arrow: the activation (sum of active features). Readouts use ReLU(fᵢ · a).</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Three features at 120°: feature 1 alone reads back as (1, 0, 0) — perfect. Features 1 and 2 together read back as (0.5, 0.5, 0): both detected at half strength (Math Box 160.1).</p>
+<p class="note">If features are rarely active, collisions are rare and superposition is a good bargain — the model stores more concepts than it has neurons. It also means individual neurons respond to several unrelated features, which is why sparse autoencoders are used to pull the directions apart (Chapters 159–160, 178).</p>
+<script>
+const $ = id => document.getElementById(id);
+const COL = ["#1b4de4", "#d6215a", "#0e8f6e", "#e0930b", "#6c3fd1", "#2f6fe0", "#4fa63c", "#b06f00"];
+function draw() {
+  const n = +$("n").value, p = +$("p").value; $("nV").textContent = n; $("pV").textContent = p.toFixed(2);
+  const F = Array.from({ length: n }, (_, i) => [Math.cos(2 * Math.PI * i / n), Math.sin(2 * Math.PI * i / n)]);
+  ["a1", "a2", "a3"].forEach((id, i) => { $(id).disabled = i >= n; });
+  const act = F.map((_, i) => i < 3 ? $("a" + (i + 1)).checked : false), a = F.reduce((s, f, i) => act[i] ? [s[0] + f[0], s[1] + f[1]] : s, [0, 0]);
+  const read = F.map(f => Math.max(0, f[0] * a[0] + f[1] * a[1]));
+  let s = `<title id="pT">Superposition</title><circle r="1" fill="none" stroke="#d7dce6" stroke-width="0.01"/>`;
+  F.forEach((f, i) => s += `<line x1="0" y1="0" x2="${f[0]}" y2="${-f[1]}" stroke="${COL[i]}" stroke-width="${act[i] ? 0.06 : 0.03}"/><text x="${f[0] * 1.2}" y="${-f[1] * 1.2 + 0.05}" text-anchor="middle" font-size="0.15" font-family="ui-sans-serif,system-ui" fill="${COL[i]}">f${i + 1}</text>`);
+  s += `<line x1="0" y1="0" x2="${a[0]}" y2="${-a[1]}" stroke="#0f1626" stroke-width="0.05"/><circle cx="${a[0]}" cy="${-a[1]}" r="0.05" fill="#0f1626"/>`;
+  $("plot").innerHTML = s;
+  const pk = 1 - (1 - p) ** (n - 1);
+  $("out").textContent = `activation a = (${a.map(v => v.toFixed(3)).join(", ")})\nreadouts ReLU(fᵢ · a): (${read.map(v => v.toFixed(2)).join(", ")})   intended: (${act.map(x => x ? 1 : 0).join(", ")})\nif each feature is active with p = ${p.toFixed(2)}, chance an active feature shares the layer with another: ${(pk * 100).toFixed(1)}%`;
+}
+["a1", "a2", "a3"].forEach(k => $(k).addEventListener("change", draw)); ["n", "p"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

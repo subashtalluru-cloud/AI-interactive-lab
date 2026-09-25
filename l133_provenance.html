@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where did each part of the answer come from? — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:57">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 124, 133 · Lab L133.1</span></p>
+</div></header>
+<main>
+<h1>Where did each part of the answer come from?</h1>
+<p class="lede">A system answer mixes claims from retrieved documents, tool results, stored memory and the model’s own synthesis — and, if uncited, its training. Each source fails differently and must be checked differently. Mark each claim and see what verification it needs.</p>
+<div class="panel" id="claims"></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">In the book’s example, five claims come from five different layers: a formulary chunk, another chunk, a record query, a stored note, and the model’s synthesis — each with its own check (Math Box 133.1).</p>
+<p class="note">Mark a retrieved claim as “uncited” and it becomes parametric knowledge: unverifiable by lookup, and the most likely home of confident errors. Systems that label provenance per claim make review fast; systems that blend everything into fluent prose make it slow (Chapters 124–133).</p>
+<script>
+const $ = id => document.getElementById(id);
+const CL = [["Latanoprost is not contraindicated in asthma", "retrieval"], ["Timolol would be contraindicated", "retrieval"], ["Her last IOP was 17 mmHg (right) on 3 March", "tool"], ["She previously preferred evening dosing", "memory"], ["Continue latanoprost; review in 3 months", "synthesis"]];
+const SRC = { retrieval: "Retrieved document (cited)", uncited: "Model’s training (uncited)", tool: "Tool / record query", memory: "Stored memory", synthesis: "Model synthesis" };
+const CHK = { retrieval: "open the cited chunk: does it exist, is it current, does it say this?", uncited: "cannot be looked up in the answer — verify independently or ask for a source", tool: "check the call: right patient, right eye, right date", memory: "check the note’s date and who recorded it", synthesis: "clinician judgment over the verified parts" };
+const RISK = { retrieval: 1, uncited: 3, tool: 1, memory: 2, synthesis: 2 };
+function build() { $("claims").innerHTML = CL.map(([c, s], i) => `<div class="control" style="margin:.4rem 0"><label for="c${i}">“${c}”</label><select id="c${i}">${Object.entries(SRC).map(([k, v]) => `<option value="${k}" ${k === s ? "selected" : ""}>${v}</option>`).join("")}</select></div>`).join(""); CL.forEach((_, i) => $("c" + i).addEventListener("change", draw)); }
+function draw() {
+  const sel = CL.map((_, i) => $("c" + i).value);
+  $("out").textContent = CL.map(([c], i) => `• ${c}\n    source: ${SRC[sel[i]]} → ${CHK[sel[i]]}`).join("\n") + `\nuncited claims: ${sel.filter(s => s === "uncited").length}   review burden score: ${sel.reduce((a, s) => a + RISK[s], 0)} (lower is easier)`;
+}
+build(); draw();
+</script></main></body></html>

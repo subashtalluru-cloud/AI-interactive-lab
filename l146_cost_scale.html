@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prompting, fine-tuning or retrieval: cost at scale — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:13">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 98, 146 · Lab L146.1</span></p>
+</div></header>
+<main>
+<h1>Prompting, fine-tuning or retrieval: a cost comparison at scale</h1>
+<p class="lede">At a handful of requests, the cost of a long prompt is irrelevant. At a hundred thousand a month it can dominate — and then the one-off cost of fine-tuning a smaller model may pay for itself. Prices are illustrative; the structure of the comparison is the point.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="n">Requests per month <span class="val" id="nV"></span></label><input type="range" id="n" min="3" max="7" step="0.1" value="5"></div>
+<div class="control"><label for="pin">Large-model input price $/M tokens <span class="val" id="pinV"></span></label><input type="range" id="pin" min="0.1" max="15" step="0.1" value="3"></div>
+<div class="control"><label for="pout">Large-model output price $/M tokens <span class="val" id="poutV"></span></label><input type="range" id="pout" min="0.5" max="75" step="0.5" value="15"></div>
+<div class="control"><label for="ta">Prompt A tokens (instructions + examples + letter) <span class="val" id="taV"></span></label><input type="range" id="ta" min="500" max="20000" step="500" value="5000"></div>
+<div class="control"><label for="tb">Prompt B tokens (fine-tuned, short prompt) <span class="val" id="tbV"></span></label><input type="range" id="tb" min="200" max="5000" step="100" value="1500"></div>
+<div class="control"><label for="to">Output tokens <span class="val" id="toV"></span></label><input type="range" id="to" min="50" max="2000" step="50" value="300"></div>
+<div class="control"><label for="ft">One-off fine-tuning + validation cost ($) <span class="val" id="ftV"></span></label><input type="range" id="ft" min="0" max="50000" step="500" value="10000"></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">100,000 letters a month: the large model with a 5,000-token prompt costs about $1,950/month; a small fine-tuned model at one-tenth the price with a 1,500-token prompt about $90 (Math Box 146.1).</p>
+<p class="note">The saving only counts after the one-off costs of curating data, training and validating — and the fine-tuned model must be re-validated whenever the task or guidance changes. Retrieval costs resemble the long-prompt option per request, but keeps content current and cited. The right choice depends on volume, stability and the need for provenance (Chapters 98, 146).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const n = Math.round(10 ** +$("n").value), pin = +$("pin").value, pout = +$("pout").value, ta = +$("ta").value, tb = +$("tb").value, to = +$("to").value, ft = +$("ft").value;
+  $("nV").textContent = n.toLocaleString(); ["pin", "pout"].forEach(k => $(k + "V").textContent = (+$(k).value).toFixed(1)); ["ta", "tb", "to", "ft"].forEach(k => $(k + "V").textContent = (+$(k).value).toLocaleString());
+  const A = n * ta / 1e6 * pin + n * to / 1e6 * pout, B = n * tb / 1e6 * pin / 10 + n * to / 1e6 * pout / 10, save = A - B;
+  $("out").textContent = `A (large model, long prompt): ${n.toLocaleString()} × ${ta.toLocaleString()} input → $${(n * ta / 1e6 * pin).toFixed(0)}; output → $${(n * to / 1e6 * pout).toFixed(0)};  ≈ $${A.toFixed(0)}/month\n` +
+    `B (small fine-tuned, short prompt): ≈ $${B.toFixed(0)}/month\nmonthly saving $${save.toFixed(0)} → one-off cost $${ft.toLocaleString()} recovered in ${save > 0 ? (ft / save).toFixed(1) + " months" : "never"}`;
+}
+["n", "pin", "pout", "ta", "tb", "to", "ft"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

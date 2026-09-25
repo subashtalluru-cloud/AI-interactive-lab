@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What finding nothing proves — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:118">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 161 · Lab L161.1</span></p>
+</div></header>
+<main>
+<h1>What finding nothing proves</h1>
+<p class="lede">A red team makes n attempts and finds no failures. That does not show the failure rate is zero — only that it is probably below about 3/n. And a failure too rare to show up in testing can still happen many times a month in deployment.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="n">Attempts with zero failures <span class="val" id="nV"></span></label><input type="range" id="n" min="10" max="20000" step="10" value="500"></div>
+    <div class="control"><label for="p">True failure rate to look for (1 in …) <span class="val" id="pV"></span></label><input type="range" id="p" min="10" max="100000" step="10" value="1000"></div>
+    <div class="control"><label for="use">Uses per month in deployment <span class="val" id="useV"></span></label><input type="range" id="use" min="1000" max="10000000" step="1000" value="1000000"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 280" role="img" aria-labelledby="pT"><title id="pT">Chance of seeing at least one failure against the number of attempts</title></svg>
+  <figcaption>Curve: chance that n attempts reveal at least one failure of the chosen rarity, 1 − (1 − p)ⁿ. Dashed: the 95% level. Dot: your current number of attempts. The horizontal axis is logarithmic.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">500 clean attempts bound the failure rate at 3/500 = 0.6%. To have a 95% chance of seeing a 1-in-1,000 failure takes about 3,000 attempts. A 0.1% serious-failure rate over a million uses a month is about 1,000 failures a month (Math Box 161.1).</p>
+<p class="note">Red teaming is good at finding failures and poor at proving their absence. Report it as “in a search of this size and kind we found these problems and no others” — never “the system is safe”. Skilled attackers are not random samples: they find failures faster than chance would, so red-team rates are not the rates ordinary users will meet.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const n = +$("n").value, inv = +$("p").value, p = 1 / inv, use = +$("use").value;
+  $("nV").textContent = n.toLocaleString(); $("pV").textContent = inv.toLocaleString(); $("useV").textContent = use.toLocaleString();
+  const lo = 1, hi = 5, X = v => 60 + (Math.log10(Math.max(10, v)) - lo) / (hi - lo) * 620, Y = v => 250 - v * 220;
+  let s = `<title id="pT">Detection</title><rect x="60" y="30" width="620" height="220" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  s += `<line x1="60" y1="${Y(.95)}" x2="680" y2="${Y(.95)}" stroke="#4a5468" stroke-dasharray="5 4"/>`;
+  for (let e = 1; e <= 5; e++) s += `<text x="${X(10 ** e)}" y="268" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${(10 ** e).toLocaleString()}</text>`;
+  [0, .5, 1].forEach(v => s += `<text x="52" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  const pts = Array.from({ length: 201 }, (_, i) => 10 ** (lo + i / 200 * (hi - lo)));
+  s += `<polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${pts.map(v => `${X(v)},${Y(1 - (1 - p) ** v)}`).join(" ")}"/>`;
+  const det = 1 - (1 - p) ** n, need = Math.ceil(Math.log(0.05) / Math.log(1 - p));
+  s += `<circle cx="${X(n)}" cy="${Y(det)}" r="7" fill="#d6215a"/>`;
+  if (need <= 1e5) s += `<line x1="${X(need)}" y1="30" x2="${X(need)}" y2="250" stroke="#0e8f6e" stroke-dasharray="3 4"/><text x="${X(need) + 4}" y="44" font-family="ui-sans-serif,system-ui" font-size="11" fill="#0e8f6e">95% at ${need.toLocaleString()}</text>`;
+  $("plot").innerHTML = s;
+  $("out").textContent =
+    `rule of three: zero failures in ${n.toLocaleString()} attempts → failure rate probably below 3/${n.toLocaleString()} = ${(300 / n).toFixed(3)}%\n` +
+    `chance these ${n.toLocaleString()} attempts would have revealed a 1-in-${inv.toLocaleString()} failure: ${(det * 100).toFixed(1)}%\n` +
+    `attempts needed for a 95% chance: ln 0.05 / ln(1 − ${p.toPrecision(2)}) ≈ ${need.toLocaleString()}\n` +
+    `in deployment: ${use.toLocaleString()} uses × ${p.toPrecision(2)} ≈ ${(use * p).toLocaleString(undefined, { maximumFractionDigits: 0 })} failures a month;  at the upper bound 3/n: ≈ ${(use * 3 / n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+["n", "p", "use"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

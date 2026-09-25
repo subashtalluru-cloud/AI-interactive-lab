@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A normalizing flow in one dimension — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:40">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 114 · Lab L114.1</span></p>
+</div></header>
+<main>
+<h1>A normalizing flow in one dimension</h1>
+<p class="lede">A flow turns simple noise into data through invertible steps. Because each step can be undone, the density of any data point can be computed exactly: map it back to noise, read the simple density there, and correct for how much the step stretched space.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="a">Stretch a in x = a·z + b <span class="val" id="aV"></span></label><input type="range" id="a" min="0.2" max="4" step="0.05" value="2"></div>
+<div class="control"><label for="b">Shift b <span class="val" id="bV"></span></label><input type="range" id="b" min="-4" max="4" step="0.1" value="1"></div>
+<div class="control"><label for="k">Then a bend x ← x + k·tanh(x) <span class="val" id="kV"></span></label><input type="range" id="k" min="-0.9" max="3" step="0.05" value="0"></div>
+<div class="control"><label for="x0">Query point x <span class="val" id="x0V"></span></label><input type="range" id="x0" min="-8" max="10" step="0.1" value="3"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 280" role="img" aria-labelledby="pT"><title id="pT">Base density, transformed density, and the query point</title></svg>
+<figcaption>Grey: the standard normal density of z. Cobalt: the resulting density of x. Crimson: the query point x and the z it maps back to.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">x = 2z + 1 at x = 3: invert to z = 1, p_z(1) = 0.242, divide by the stretch 2 → 0.121 — exactly the density of N(1, 2²) at 3 (Math Box 114.1).</p>
+<p class="note">Add the bend: the density becomes non-Gaussian, yet it is still exact, because the bend is invertible and its slope 1 + k·(1 − tanh²) is known. Real flows stack many such steps in many dimensions; the price of exactness is that every step must stay invertible with a cheap slope (the determinant of its Jacobian) (Chapter 114).</p>
+<script>
+const $ = id => document.getElementById(id);
+const phi = z => Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);
+function fwd(z, a, b, k) { const u = a * z + b; return u + k * Math.tanh(u); }
+function inv(x, a, b, k) { let u = x; for (let i = 0; i < 60; i++) { const f = u + k * Math.tanh(u) - x, fp = 1 + k * (1 - Math.tanh(u) ** 2); u -= f / fp; } return [(u - b) / a, u]; }
+function dens(x, a, b, k) { const [z, u] = inv(x, a, b, k); return phi(z) / (a * (1 + k * (1 - Math.tanh(u) ** 2))); }
+function draw() {
+  const a = +$("a").value, b = +$("b").value, k = +$("k").value, x0 = +$("x0").value;
+  ["a", "b", "k", "x0"].forEach(i => $(i + "V").textContent = (+$(i).value).toFixed(2));
+  const X = v => 40 + (v + 8) / 18 * 640, xs = Array.from({ length: 361 }, (_, i) => -8 + i / 20), top = Math.max(0.42, ...xs.map(v => dens(v, a, b, k)));
+  const Y = v => 240 - v / top * 210;
+  let s = `<title id="pT">Flow</title><line x1="40" y1="240" x2="680" y2="240" stroke="#b8c0cf"/>`;
+  s += `<polyline fill="#9aa3b5" fill-opacity="0.2" stroke="#9aa3b5" stroke-width="2" points="${X(-8)},240 ${xs.map(v => `${X(v)},${Y(phi(v))}`).join(" ")} ${X(10)},240"/>`;
+  s += `<polyline fill="#1b4de4" fill-opacity="0.15" stroke="#1b4de4" stroke-width="3" points="${X(-8)},240 ${xs.map(v => `${X(v)},${Y(dens(v, a, b, k))}`).join(" ")} ${X(10)},240"/>`;
+  const [z0] = inv(x0, a, b, k), dx = dens(x0, a, b, k);
+  s += `<line x1="${X(x0)}" y1="240" x2="${X(x0)}" y2="${Y(dx)}" stroke="#d6215a" stroke-width="2.5"/><circle cx="${X(z0)}" cy="240" r="5" fill="#d6215a"/><text x="${X(z0)}" y="258" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#d6215a">z</text>`;
+  for (let v = -8; v <= 10; v += 2) s += `<text x="${X(v)}" y="274" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">${v}</text>`;
+  $("plot").innerHTML = s;
+  const u = a * z0 + b, slope = a * (1 + k * (1 - Math.tanh(u) ** 2));
+  $("out").textContent = `inverse: z = ${z0.toFixed(3)};  p_z(z) = ${phi(z0).toFixed(3)}\nstretch |dx/dz| = ${a.toFixed(2)} × ${(1 + k * (1 - Math.tanh(u) ** 2)).toFixed(3)} = ${slope.toFixed(3)}\np_x(${x0.toFixed(2)}) = ${phi(z0).toFixed(3)} / ${slope.toFixed(3)} = ${dx.toFixed(3)}`;
+}
+["a", "b", "k", "x0"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

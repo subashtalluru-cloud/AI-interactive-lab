@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The scale of video — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:38">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 113, 116 · Lab L116.1</span></p>
+</div></header>
+<main>
+<h1>The scale of video</h1>
+<p class="lede">Five seconds of video is tens of millions of numbers. Video generators work in a compressed latent space and cut it into spacetime patches — and even then, full attention between every pair of patches is enormous.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="sec">Seconds <span class="val" id="secV"></span></label><input type="range" id="sec" min="1" max="60" step="1" value="5"></div>
+<div class="control"><label for="fps">Frames per second <span class="val" id="fpsV"></span></label><input type="range" id="fps" min="8" max="60" step="1" value="24"></div>
+<div class="control"><label for="res">Resolution (square side, px) <span class="val" id="resV"></span></label><input type="range" id="res" min="128" max="2048" step="64" value="512"></div>
+<div class="control"><label for="sp">Spatial compression <span class="val" id="spV"></span></label><input type="range" id="sp" min="4" max="32" step="4" value="8"></div>
+<div class="control"><label for="tm">Temporal compression <span class="val" id="tmV"></span></label><input type="range" id="tm" min="1" max="8" step="1" value="4"></div>
+<div class="control"><label for="ch">Latent channels <span class="val" id="chV"></span></label><input type="range" id="ch" min="4" max="64" step="4" value="16"></div>
+<div class="control"><label for="pp">Patch (latent positions per side) <span class="val" id="ppV"></span></label><input type="range" id="pp" min="1" max="4" step="1" value="2"></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">5 s at 24 fps, 512 × 512: 94 million numbers; latent at 8× spatial, 4× temporal, 16 channels: 2.0 million (≈ 48×); 2 × 2 patches give 30,720 spacetime tokens and 9.4 × 10⁸ attention scores per head per layer (Math Box 116.1).</p>
+<p class="note">Double the duration and the attention cost quadruples. This is why long, consistent video remains hard, and why many systems use factorized or windowed attention rather than full spacetime attention (Chapters 66, 113, 116).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [sec, fps, res, sp, tm, ch, pp] = ["sec", "fps", "res", "sp", "tm", "ch", "pp"].map(k => +$(k).value); ["sec", "fps", "res", "sp", "tm", "ch", "pp"].forEach(k => $(k + "V").textContent = $(k).value);
+  const fr = sec * fps, raw = fr * res * res * 3, lf = Math.ceil(fr / tm), ls = res / sp, lat = lf * ls * ls * ch, tok = lf * (ls / pp) ** 2;
+  $("out").textContent = `raw: ${fr} frames × ${res}×${res}×3 = ${raw.toExponential(2)} numbers\nlatent: ${lf} × ${ls}×${ls} × ${ch} = ${lat.toExponential(2)} numbers  (compression ×${(raw / lat).toFixed(0)})\nspacetime tokens: ${lf} × (${ls}/${pp})² = ${tok.toLocaleString()}\nfull attention scores per head per layer: ${(tok * tok).toExponential(2)}`;
+}
+["sec", "fps", "res", "sp", "tm", "ch", "pp"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

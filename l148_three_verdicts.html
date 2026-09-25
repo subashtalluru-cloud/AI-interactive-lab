@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One model, three verdicts — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:253">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 26, 148 · Lab L148.1</span></p>
+</div></header>
+<main>
+<h1>One model, three verdicts</h1>
+<p class="lede">The same diabetic-retinopathy model is “excellent” on a balanced benchmark, disappointing in screening, and unacceptable on one camera. None of these verdicts is wrong; each answers a different question.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="se">Sensitivity <span class="val" id="seV"></span></label><input type="range" id="se" min="0.5" max="1" step="0.01" value="0.9"></div>
+<div class="control"><label for="sp">Specificity <span class="val" id="spV"></span></label><input type="range" id="sp" min="0.5" max="1" step="0.01" value="0.94"></div>
+<div class="control"><label for="bp">Benchmark prevalence <span class="val" id="bpV"></span></label><input type="range" id="bp" min="0.05" max="0.8" step="0.01" value="0.5"></div>
+<div class="control"><label for="dp">Deployment prevalence <span class="val" id="dpV"></span></label><input type="range" id="dp" min="0.005" max="0.5" step="0.005" value="0.05"></div>
+<div class="control"><label for="s2">Sensitivity on the rural camera <span class="val" id="s2V"></span></label><input type="range" id="s2" min="0.5" max="1" step="0.01" value="0.78"></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Balanced benchmark: accuracy 0.92. Screening at 5%: precision (0.90 × 0.05)/(0.045 + 0.06 × 0.95) ≈ 0.44 — more than half of referrals are false alarms. Rural camera: sensitivity 0.78 (Math Box 148.1).</p>
+<p class="note">A single headline number would hide both the precision problem and the subgroup failure. Evaluation is the construction of a picture adequate to a decision: which population, which operating point, which subgroups, which harms (Chapters 21, 26, 148, 158).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [se, sp, bp, dp, s2] = ["se", "sp", "bp", "dp", "s2"].map(k => +$(k).value); ["se", "sp", "s2"].forEach(k => $(k + "V").textContent = (+$(k).value).toFixed(2)); $("bpV").textContent = (bp * 100).toFixed(0) + "%"; $("dpV").textContent = (dp * 100).toFixed(1) + "%";
+  const acc = se * bp + sp * (1 - bp), ppv = se * dp / (se * dp + (1 - sp) * (1 - dp)), dacc = se * dp + sp * (1 - dp);
+  $("out").textContent = `Verdict 1 — benchmark accuracy at ${(bp * 100).toFixed(0)}% prevalence: ${se.toFixed(2)}×${bp.toFixed(2)} + ${sp.toFixed(2)}×${(1 - bp).toFixed(2)} = ${acc.toFixed(3)}\n` +
+    `Verdict 2 — screening at ${(dp * 100).toFixed(1)}%: precision ${(se * dp).toFixed(4)} / ${(se * dp + (1 - sp) * (1 - dp)).toFixed(4)} = ${ppv.toFixed(2)}  (${((1 - ppv) * 100).toFixed(0)}% of referrals false);  accuracy here ${dacc.toFixed(3)}\n` +
+    `Verdict 3 — subgroup: sensitivity ${se.toFixed(2)} overall vs ${s2.toFixed(2)} on the rural camera → missed cases per 1,000 screened: ${((1 - se) * 1000 * dp).toFixed(1)} overall vs ${((1 - s2) * 1000 * dp).toFixed(1)} on the rural camera`;
+}
+["se", "sp", "bp", "dp", "s2"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

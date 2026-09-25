@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRPO — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:317">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 64, 165, 65 · Lab L165.1</span></p>
+</div></header>
+<main>
+<h1>GRPO: learning from a group of attempts</h1>
+<p class="lede">Sample several answers to the same problem, check each, and score each answer against the group’s average. Answers better than their siblings are reinforced; worse ones are discouraged. No separate value network is needed.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="G">Group size G <span class="val" id="GV"></span></label><input type="range" id="G" min="2" max="16" step="1" value="4"></div>
+<div class="control"><label for="p">Model’s chance of solving this problem <span class="val" id="pV"></span></label><input type="range" id="p" min="0" max="1" step="0.01" value="0.5"></div>
+<div class="control" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><button id="samp">Sample a group</button><button id="book" class="ghost">Book’s group (1, 0, 0, 1)</button></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 200" role="img" aria-labelledby="pT"><title id="pT">Rewards and group-relative advantages</title></svg>
+<figcaption>Each column is one sampled answer: reward (✓ or ✗) and its advantage bar — up for reinforced, down for discouraged.</figcaption></figure>
+<p class="readout" id="out"></p>
+<figure><svg id="curve" viewBox="0 0 720 200" role="img" aria-labelledby="cT"><title id="cT">Chance that a group teaches anything, against problem difficulty</title></svg>
+<figcaption>Chance that a group of G contains both a success and a failure, 1 − pᴳ − (1 − p)ᴳ. Otherwise every advantage is zero and the problem teaches nothing.</figcaption></figure>
+<h2>What to notice</h2>
+<p class="finding">Rewards (1, 0, 0, 1): mean 0.5, SD 0.5, advantages (+1, −1, −1, +1) (Math Box 165.1).</p>
+<p class="note">Push p near 0 or 1: most groups are all-wrong or all-right, advantages vanish, and the problem is wasted compute — so training sets are filtered to problems of intermediate difficulty for the current model. And every token of an answer shares one advantage: a correct answer reached by a lucky wrong step is rewarded whole (Chapter 165).</p>
+<script>
+const $ = id => document.getElementById(id);
+let R = [1, 0, 0, 1];
+function adv(r) { const m = r.reduce((a, b) => a + b) / r.length, sd = Math.sqrt(r.reduce((a, v) => a + (v - m) ** 2, 0) / r.length); return { m, sd, a: r.map(v => sd > 0 ? (v - m) / sd : 0) }; }
+function draw() {
+  const G = +$("G").value, p = +$("p").value; $("GV").textContent = G; $("pV").textContent = p.toFixed(2);
+  const { m, sd, a } = adv(R), W = Math.min(80, 640 / R.length);
+  let s = `<title id="pT">Advantages</title><line x1="40" y1="110" x2="700" y2="110" stroke="#b8c0cf"/>`;
+  R.forEach((r, i) => { const x = 50 + i * W; s += `<rect x="${x}" y="${a[i] >= 0 ? 110 - a[i] * 40 : 110}" width="${W - 10}" height="${Math.abs(a[i]) * 40}" fill="${a[i] >= 0 ? "#0e8f6e" : "#d6215a"}"/><text x="${x + (W - 10) / 2}" y="190" text-anchor="middle" font-size="16" fill="${r ? "#0e8f6e" : "#d6215a"}">${r ? "✓" : "✗"}</text><text x="${x + (W - 10) / 2}" y="${a[i] >= 0 ? 104 - a[i] * 40 : 124 - a[i] * 40}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#0f1626">${a[i] >= 0 ? "+" : ""}${a[i].toFixed(2)}</text>`; });
+  $("plot").innerHTML = s;
+  const X = v => 60 + v * 620, Y = v => 180 - v * 160, ps = Array.from({ length: 101 }, (_, i) => i / 100), use = q => 1 - q ** G - (1 - q) ** G;
+  let c = `<title id="cT">Useful groups</title><rect x="60" y="20" width="620" height="160" fill="#f3f5f9" stroke="#d7dce6"/><polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${ps.map(q => `${X(q)},${Y(use(q))}`).join(" ")}"/><circle cx="${X(p)}" cy="${Y(use(p))}" r="6" fill="#d6215a"/>`;
+  [0, .5, 1].forEach(v => c += `<text x="${X(v)}" y="196" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">p = ${v}</text>`);
+  $("curve").innerHTML = c;
+  $("out").textContent = `rewards (${R.join(", ")});  mean ${m.toFixed(2)}, SD ${sd.toFixed(2)}\nadvantages (r − mean)/SD = (${a.map(v => (v >= 0 ? "+" : "") + v.toFixed(2)).join(", ")})` + (sd === 0 ? "   ← all equal: nothing to learn" : "") +
+    `\nchance a group of ${G} is informative at p = ${p.toFixed(2)}: ${(use(p) * 100).toFixed(0)}%`;
+}
+$("samp").onclick = () => { const G = +$("G").value, p = +$("p").value; R = Array.from({ length: G }, () => Math.random() < p ? 1 : 0); draw(); };
+$("book").onclick = () => { $("G").value = 4; R = [1, 0, 0, 1]; draw(); };
+["G", "p"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two benchmark design flaws — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:98">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 149, 150 · Lab L150.1</span></p>
+</div></header>
+<main>
+<h1>Two benchmark design flaws, in numbers</h1>
+<p class="lede">Wrong reference answers cap what a perfect model can score and reward models that share the mistakes. Multiple choice gives free points for guessing. Both distort the numbers most near chance and near the ceiling — where comparisons are usually made.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="le">Share of benchmark labels that are wrong <span class="val" id="leV"></span></label><input type="range" id="le" min="0" max="0.2" step="0.005" value="0.05"></div>
+<div class="control"><label for="tr">Model’s true accuracy <span class="val" id="trV"></span></label><input type="range" id="tr" min="0.3" max="1" step="0.01" value="1"></div>
+<div class="control"><label for="cp">Share of wrong labels the model has also learned <span class="val" id="cpV"></span></label><input type="range" id="cp" min="0" max="1" step="0.05" value="0"></div>
+<div class="control"><label for="k">Options per question <span class="val" id="kV"></span></label><input type="range" id="k" min="2" max="10" step="1" value="4"></div>
+<div class="control"><label for="ob">Observed multiple-choice score <span class="val" id="obV"></span></label><input type="range" id="ob" min="0" max="1" step="0.01" value="0.4"></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">With 5% wrong labels, a perfect model scores 95%. On four-option questions guessing scores 25%, so an observed 40% means only (0.40 − 0.25)/(1 − 0.25) = 20% genuinely known (Math Box 150.1).</p>
+<p class="note">Slide “learned the mistakes” up: a model that absorbed the benchmark’s errors — for instance through contamination — scores <em>higher</em> than a correct one. Near the top, gains of a point or two can be label noise or memorization rather than improvement (Chapters 149–151).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [le, tr, cp, k, ob] = ["le", "tr", "cp", "k", "ob"].map(x => +$(x).value); $("leV").textContent = (le * 100).toFixed(1) + "%"; $("trV").textContent = tr.toFixed(2); $("cpV").textContent = cp.toFixed(2); $("kV").textContent = k; $("obV").textContent = ob.toFixed(2);
+  const meas = tr * (1 - le) + le * cp, g = 1 / k, known = Math.max(0, (ob - g) / (1 - g));
+  $("out").textContent = `measured score = true-correct on correct labels + learned mistakes on wrong labels\n  = ${tr.toFixed(2)}×${(1 - le).toFixed(3)} + ${le.toFixed(3)}×${cp.toFixed(2)} = ${meas.toFixed(3)}   (ceiling for a truly perfect model: ${(1 - le).toFixed(3)})\n` +
+    `guessing on ${k} options scores ${(g * 100).toFixed(1)}%;  observed ${ob.toFixed(2)} → genuinely known ≈ (${ob.toFixed(2)} − ${g.toFixed(3)})/(1 − ${g.toFixed(3)}) = ${known.toFixed(3)}`;
+}
+["le", "tr", "cp", "k", "ob"].forEach(x => $(x).addEventListener("input", draw)); draw();
+</script></main></body></html>

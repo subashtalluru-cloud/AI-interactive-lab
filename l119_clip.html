@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrastive learning on a batch of three — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:48">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 119 · Lab L119.1</span></p>
+</div></header>
+<main>
+<h1>Contrastive learning on a batch of three</h1>
+<p class="lede">CLIP-style training scores every image against every caption in a batch. Each row and each column becomes a small classification problem: the matching pair should win, and every other item is a negative example.</p>
+
+<div class="panel">
+  <p style="font-family:var(--sans);font-size:.9rem;margin:0 0 .4rem">Cosine similarities (edit any cell). Rows: (1) fundus with disc haemorrhage, (2) OCT with macular fluid, (3) slit-lamp cataract. Columns: their captions.</p>
+  <table id="edit" style="font-family:var(--mono)"></table>
+  <div class="controls" style="margin-top:.6rem">
+    <div class="control"><label for="tau">Temperature τ <span class="val" id="tauV"></span></label><input type="range" id="tau" min="0.05" max="2" step="0.01" value="0.5"></div>
+    <div class="control" style="align-self:end"><button id="book" class="ghost">Book’s values</button><button id="train" class="ghost">One training step</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="heat" viewBox="0 0 720 250" role="img" aria-labelledby="hT"><title id="hT">Row-wise and column-wise softmax of the similarity matrix</title></svg>
+  <figcaption>Left: image → caption probabilities (each row sums to 1). Right: caption → image (each column sums to 1). Outlined cells are the correct matches.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">With the book’s similarities and τ = 0.5: row losses 0.37, 0.51, 0.62 (mean 0.50), column mean 0.49, total ≈ 0.50. Image 3 is the weakest because it sits close to caption 2.</p>
+<p class="note">Press “one training step” repeatedly: correct pairs are pulled together and the strongest wrong pair is pushed apart first. Lowering τ sharpens every softmax — small similarity differences become large probability differences. Larger batches give each item more negatives, which is why CLIP trained with 32,768 pairs per batch (Chapter 119).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const BOOK = [[.9, .2, .1], [.3, .8, .2], [.1, .4, .7]];
+let S = BOOK.map(r => r.slice());
+function buildEdit() {
+  $("edit").innerHTML = `<tr><th></th><th>cap 1</th><th>cap 2</th><th>cap 3</th></tr>` + S.map((r, i) => `<tr><th>img ${i + 1}</th>${r.map((v, j) =>
+    `<td><input type="number" step="0.05" min="-1" max="1" value="${v.toFixed(2)}" data-i="${i}" data-j="${j}" style="width:4.5rem;font-family:var(--mono);${i === j ? "font-weight:700" : ""}"></td>`).join("")}</tr>`).join("");
+  $("edit").querySelectorAll("input").forEach(inp => inp.addEventListener("input", () => { const v = +inp.value; if (isFinite(v)) { S[+inp.dataset.i][+inp.dataset.j] = Math.max(-1, Math.min(1, v)); draw(); } }));
+}
+const smax = v => { const m = Math.max(...v), e = v.map(x => Math.exp(x - m)), s = e.reduce((a, b) => a + b); return e.map(x => x / s); };
+function probs(tau) {
+  const R = S.map(r => smax(r.map(v => v / tau)));
+  const Ccols = [0, 1, 2].map(j => smax(S.map(r => r[j] / tau)));
+  const C = S.map((r, i) => r.map((_, j) => Ccols[j][i]));
+  return { R, C };
+}
+function draw() {
+  const tau = +$("tau").value; $("tauV").textContent = tau.toFixed(2);
+  const { R, C } = probs(tau);
+  const cell = (M, x0, title) => {
+    let s = `<text x="${x0 + 135}" y="18" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="13" font-weight="700" fill="#0f1626">${title}</text>`;
+    M.forEach((r, i) => r.forEach((v, j) => {
+      const x = x0 + 30 + j * 80, y = 30 + i * 66;
+      s += `<rect x="${x}" y="${y}" width="76" height="62" fill="#1b4de4" fill-opacity="${0.08 + 0.85 * v}" stroke="${i === j ? "#0e8f6e" : "#d7dce6"}" stroke-width="${i === j ? 3 : 1}"/>`;
+      s += `<text x="${x + 38}" y="${y + 36}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="14" fill="${v > .5 ? "#fff" : "#0f1626"}">${v.toFixed(3)}</text>`;
+    }));
+    [0, 1, 2].forEach(i => s += `<text x="${x0 + 24}" y="${66 + i * 66}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">img ${i + 1}</text>`);
+    return s;
+  };
+  $("heat").innerHTML = `<title id="hT">Softmaxes</title>` + cell(R, 20, "image → caption") + cell(C, 380, "caption → image");
+  const rl = R.map((r, i) => -Math.log(r[i])), cl = C.map((r, i) => -Math.log(C[i][i]));
+  const mr = rl.reduce((a, b) => a + b) / 3, mc = cl.reduce((a, b) => a + b) / 3;
+  $("out").textContent =
+    `row logits = similarity / τ;  row losses −ln p(correct) = ${rl.map(v => v.toFixed(2)).join(", ")}  → mean ${mr.toFixed(2)}\n` +
+    `column losses = ${cl.map(v => v.toFixed(2)).join(", ")}  → mean ${mc.toFixed(2)}\n` +
+    `total contrastive loss = (${mr.toFixed(2)} + ${mc.toFixed(2)}) / 2 = ${((mr + mc) / 2).toFixed(2)}`;
+}
+$("tau").addEventListener("input", draw);
+$("book").onclick = () => { S = BOOK.map(r => r.slice()); buildEdit(); draw(); };
+$("train").onclick = () => {
+  const tau = +$("tau").value, { R, C } = probs(tau), lr = 0.05;
+  // gradient of the loss with respect to each similarity: (p − target)/τ, averaged over the two directions
+  S = S.map((r, i) => r.map((v, j) => {
+    const g = ((R[i][j] - (i === j)) + (C[i][j] - (i === j))) / (2 * tau);
+    return Math.max(-1, Math.min(1, v - lr * g));
+  }));
+  buildEdit(); draw();
+};
+buildEdit(); draw();
+</script>
+</main></body></html>

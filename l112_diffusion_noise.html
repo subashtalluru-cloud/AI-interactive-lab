@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Noising an image — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:37">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 112, 113 · Lab L112.1</span></p>
+</div></header>
+
+<main>
+<h1>The forward process of a diffusion model</h1>
+<p class="lede">A drawn fundus, destroyed one noise level at a time by the formula x_t = √ᾱ · x₀ + √(1 − ᾱ) · ε. A diffusion model is trained to look at any of these noisy images and say which part is the noise.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="ab">Signal fraction ᾱ <span class="val" id="abV"></span></label>
+      <input type="range" id="ab" min="0" max="1" step="0.005" value="0.5"></div>
+    <div class="control" style="align-self:end"><button id="newNoise" class="ghost">Draw fresh noise</button></div>
+  </div>
+</div>
+
+<div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr))">
+  <figure style="margin:0"><canvas id="c0" width="160" height="160" style="width:100%;image-rendering:pixelated;border-radius:8px" aria-label="Clean image"></canvas><figcaption>Clean image x₀</figcaption></figure>
+  <figure style="margin:0"><canvas id="ce" width="160" height="160" style="width:100%;image-rendering:pixelated;border-radius:8px" aria-label="Noise"></canvas><figcaption>Noise ε (what the network must predict)</figcaption></figure>
+  <figure style="margin:0"><canvas id="ct" width="160" height="160" style="width:100%;image-rendering:pixelated;border-radius:8px" aria-label="Noisy image"></canvas><figcaption id="ctCap">Noisy image x_t</figcaption></figure>
+</div>
+
+<h2>One pixel, followed exactly</h2>
+<p class="readout" id="pix"></p>
+
+<h2>What to notice</h2>
+<p class="finding">At ᾱ = 0.5 the bright disc and the dark macula are still visible under the static, while the thin vessels are already hard to see: large structures survive heavy noise, fine detail does not. That is why, when generating, early denoising steps decide the overall layout and late steps add fine detail.</p>
+<p class="note">The weights √ᾱ and √(1 − ᾱ) keep the total variance constant, so the noisy image never blows up or fades out — only the balance between signal and noise moves. This is the same move as the reparameterization trick of the VAE (Chapter 110): a sample written as a scaled signal plus scaled noise.</p>
+<p class="note">Try ᾱ = 0.99, 0.5 and 0.01 and read the pixel box: 0.746, 0.212 and −0.417 — the values worked in Math Box 112.1.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const S = 160;
+let seed = 11;
+const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+const gauss = () => Math.sqrt(-2 * Math.log(rand() + 1e-12)) * Math.cos(2 * Math.PI * rand());
+
+// draw a simple fundus into a float array in [-1, 1]
+function makeFundus() {
+  const cv = document.createElement("canvas"); cv.width = cv.height = S;
+  const g = cv.getContext("2d");
+  g.fillStyle = "#000"; g.fillRect(0, 0, S, S);
+  const grd = g.createRadialGradient(80, 80, 10, 80, 80, 78);
+  grd.addColorStop(0, "#c85a2a"); grd.addColorStop(1, "#5a1a0c");
+  g.fillStyle = grd; g.beginPath(); g.arc(80, 80, 76, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = "#3a0806"; g.lineCap = "round";
+  const vessel = (pts, w) => { g.lineWidth = w; g.beginPath(); g.moveTo(...pts[0]); pts.slice(1).forEach(p => g.quadraticCurveTo(...p)); g.stroke(); };
+  vessel([[110, 80], [80, 40, 40, 30]], 3); vessel([[110, 80], [80, 120, 40, 130]], 3);
+  vessel([[110, 80], [140, 40, 150, 30]], 2.5); vessel([[110, 80], [140, 120, 150, 132]], 2.5);
+  vessel([[70, 52], [55, 60, 30, 70]], 1.5); vessel([[70, 108], [55, 100, 28, 92]], 1.5);
+  g.fillStyle = "#f2d8a0"; g.beginPath(); g.arc(110, 80, 13, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#fff3d6"; g.beginPath(); g.arc(112, 80, 6, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#3a0c06"; g.beginPath(); g.arc(58, 82, 7, 0, Math.PI * 2); g.fill();
+  const d = g.getImageData(0, 0, S, S).data;
+  const out = [];
+  for (let c = 0; c < 3; c++) { const a = new Float32Array(S * S); for (let i = 0; i < S * S; i++) a[i] = d[i * 4 + c] / 127.5 - 1; out.push(a); }
+  return out;
+}
+const X0 = makeFundus();
+let EPS;
+function newNoise() { EPS = [0, 1, 2].map(() => Float32Array.from({ length: S * S }, gauss)); }
+newNoise();
+
+function paint(id, chans, scale) {
+  const ctx = $(id).getContext("2d"), img = ctx.createImageData(S, S);
+  for (let i = 0; i < S * S; i++) {
+    for (let c = 0; c < 3; c++) img.data[i * 4 + c] = Math.max(0, Math.min(255, (chans[c][i] * scale + 1) * 127.5));
+    img.data[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function draw() {
+  const ab = +$("ab").value;
+  $("abV").textContent = ab.toFixed(3);
+  const a = Math.sqrt(ab), b = Math.sqrt(1 - ab);
+  const XT = [0, 1, 2].map(c => X0[c].map((v, i) => a * v + b * EPS[c][i]));
+  paint("c0", X0, 1); paint("ce", EPS, 0.35); paint("ct", XT, 1);
+  $("ctCap").textContent = `Noisy image x_t at ᾱ = ${ab.toFixed(3)}: ${(ab * 100).toFixed(0)}% of variance from signal`;
+  const x0 = 0.8, e = -0.5;
+  $("pix").textContent =
+    `Worked pixel from the book: x₀ = 0.8, ε = −0.5\n` +
+    `x_t = √${ab.toFixed(3)} × 0.8 + √${(1 - ab).toFixed(3)} × (−0.5) = ${a.toFixed(3)} × 0.8 + ${b.toFixed(3)} × (−0.5) = ${(a * x0 + b * e).toFixed(3)}`;
+}
+
+$("ab").addEventListener("input", draw);
+$("newNoise").addEventListener("click", () => { newNoise(); draw(); });
+draw();
+</script>
+</main>
+</body>
+</html>

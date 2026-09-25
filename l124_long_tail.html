@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why confident errors cluster in the long tail — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:57">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 124 · Lab L124.1</span></p>
+</div></header>
+<main>
+<h1>Why confident errors cluster in the long tail</h1>
+<p class="lede">A model is more reliable about facts it saw often in training. Most clinical questions are about common facts — but the errors come disproportionately from the rare ones, and the answers sound equally fluent either way.</p>
+<p class="note">The accuracy curve is a stylized illustration from Chapter 124, not a measured law.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="k">Curve scale (documents to learn a fact) <span class="val" id="kV"></span></label><input type="range" id="k" min="2" max="100" step="1" value="20"></div>
+<div class="control"><label for="c">Share of common questions (n ≈ 200) <span class="val" id="cV"></span></label><input type="range" id="c" min="0" max="1" step="0.01" value="0.7"></div>
+<div class="control"><label for="u">Share of uncommon (n ≈ 10) <span class="val" id="uV"></span></label><input type="range" id="u" min="0" max="1" step="0.01" value="0.2"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 240" role="img" aria-labelledby="pT"><title id="pT">Accuracy against training frequency, and share of errors by group</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">With P(correct) = 1 − 0.5·e^(−n/20): n = 10 → 0.70; n = 50 → 0.96; n = 200 → 1.00. A 70/20/10 mix of common, uncommon and rare questions gives 0.89 overall, and the rare 10% supply almost half the errors (0.05 of 0.11) (Math Box 124.1).</p>
+<p class="note">Overall accuracy says little about the questions a specialist actually needs help with. Retrieval (Chapter 125 onward) helps precisely here: it gives the model the rare fact at the moment it is needed instead of relying on how often it was seen.</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const k = +$("k").value; let c = +$("c").value, u = +$("u").value; if (c + u > 1) { u = 1 - c; $("u").value = u; } const r = 1 - c - u;
+  $("kV").textContent = k; $("cV").textContent = (c * 100).toFixed(0) + "%"; $("uV").textContent = (u * 100).toFixed(0) + "%";
+  const P = n => 1 - 0.5 * Math.exp(-n / k), G = [["common", c, 200, "#0e8f6e"], ["uncommon", u, 10, "#e0930b"], ["rare", r, 0, "#d6215a"]];
+  const acc = G.reduce((a, g) => a + g[1] * P(g[2]), 0), err = 1 - acc;
+  const X = n => 60 + n / 220 * 380, Y = v => 210 - (v - 0.4) / 0.6 * 180;
+  let s = `<title id="pT">Tail</title><rect x="60" y="30" width="380" height="180" fill="#f3f5f9" stroke="#d7dce6"/><polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${Array.from({ length: 221 }, (_, n) => `${X(n)},${Y(P(n))}`).join(" ")}"/>`;
+  G.forEach(([l, sh, n, col]) => s += `<circle cx="${X(n)}" cy="${Y(P(n))}" r="7" fill="${col}"/><text x="${X(n) + 8}" y="${Y(P(n)) + 16}" font-family="ui-sans-serif,system-ui" font-size="11" fill="${col}">${l}</text>`);
+  let y = 40; G.forEach(([l, sh, n, col]) => { const e = sh * (1 - P(n)), w = err > 0 ? e / err * 220 : 0; s += `<rect x="470" y="${y}" width="${w}" height="30" fill="${col}"/><text x="${476 + w}" y="${y + 20}" font-family="ui-sans-serif,system-ui" font-size="11" fill="#0f1626">${l} ${err > 0 ? (e / err * 100).toFixed(0) : 0}% of errors</text>`; y += 50; });
+  $("plot").innerHTML = s;
+  $("out").textContent = G.map(([l, sh, n]) => `${l.padEnd(9)} share ${(sh * 100).toFixed(0).padStart(3)}%  n=${String(n).padStart(3)}  P(correct)=${P(n).toFixed(3)}  contributes ${(sh * (1 - P(n))).toFixed(3)} error`).join("\n") + `\noverall accuracy ${acc.toFixed(3)};  error ${err.toFixed(3)}`;
+}
+["k", "c", "u"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

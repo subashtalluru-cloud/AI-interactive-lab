@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why asking for quotations makes checking cheap — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:80">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 138, 142 · Lab L142.1</span></p>
+</div></header>
+<main>
+<h1>Why asking for quotations makes checking cheap</h1>
+<p class="lede">The form in which you ask for evidence decides how expensive it is to verify. Checking that cited papers exist and support the claims is research; checking that a quoted sentence appears in a supplied document is a string search.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="n">Claims in the summary <span class="val" id="nV"></span></label><input type="range" id="n" min="5" max="100" step="1" value="20"></div>
+<div class="control"><label for="bad">Share of claims unsupported <span class="val" id="badV"></span></label><input type="range" id="bad" min="0" max="0.5" step="0.01" value="0.1"></div>
+<div class="control"><label for="fab">Of those, share with a fabricated source (rest misattributed) <span class="val" id="fabV"></span></label><input type="range" id="fab" min="0" max="1" step="0.05" value="0.3"></div>
+<div class="control"><label for="m1">Minutes per full citation check <span class="val" id="m1V"></span></label><input type="range" id="m1" min="2" max="20" step="1" value="7"></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Twenty claims: full citation checking takes about 100–200 minutes; quotation checking against supplied documents about 10 (Math Box 142.1).</p>
+<p class="note">A hasty check that references merely exist catches only fabricated sources and misses misattributions — often the larger share. Quotation checking catches both: a fabricated quote fails the search; a misattributed claim is visibly unsupported by its quote. Times are illustrative; the ratio is the point (Chapters 138, 142, 152).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const n = +$("n").value, bad = +$("bad").value, fab = +$("fab").value, m1 = +$("m1").value;
+  $("nV").textContent = n; $("badV").textContent = (bad * 100).toFixed(0) + "%"; $("fabV").textContent = (fab * 100).toFixed(0) + "%"; $("m1V").textContent = m1;
+  const u = n * bad, f = u * fab, mis = u - f;
+  $("out").textContent = `unsupported claims: ${u.toFixed(1)} (${f.toFixed(1)} fabricated sources, ${mis.toFixed(1)} misattributed)\n` +
+    `full citation check: ${n} × ${m1} min = ${n * m1} min → catches ${u.toFixed(1)} of ${u.toFixed(1)}\n` +
+    `hasty “does the reference exist?” check: ${n} × 1 min = ${n} min → catches ${f.toFixed(1)} of ${u.toFixed(1)}\n` +
+    `quotation check against supplied documents: ${n} × 0.5 min = ${(n * 0.5).toFixed(0)} min → catches ${u.toFixed(1)} of ${u.toFixed(1)}`;
+}
+["n", "bad", "fab", "m1"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

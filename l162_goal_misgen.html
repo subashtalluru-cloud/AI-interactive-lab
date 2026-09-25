@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perfect in training, wrong goal — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:230">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 12, 162 · Lab L162.1</span></p>
+</div></header>
+<main>
+<h1>Perfect in training, wrong goal</h1>
+<p class="lede">If the coin is always at the right end during training, “go right” and “get the coin” score identically. The training data cannot tell them apart. Only a test where they disagree reveals which goal the system learned.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="tr">Share of training episodes with the coin at the right end <span class="val" id="trV"></span></label><input type="range" id="tr" min="0" max="1" step="0.01" value="1"></div>
+<div class="control"><label for="te">Share of test episodes with the coin at the right end <span class="val" id="teV"></span></label><input type="range" id="te" min="0" max="1" step="0.01" value="0.2"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 180" role="img" aria-labelledby="pT"><title id="pT">Training and test scores of two policies</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Training: both policies 100%. Test with the coin at the right end in 20% of episodes: “get the coin” 100%, “go right” 20% (Math Box 162.1).</p>
+<p class="note">Lower the training share below 1 and the data start to separate the two goals — a few counterexamples in training are worth more than many confirming ones. Clinically: a model that learned “chest drain present → pneumothorax” scores well until it meets untreated cases (Chapters 11, 12, 162).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const tr = +$("tr").value, te = +$("te").value; $("trV").textContent = tr.toFixed(2); $("teV").textContent = te.toFixed(2);
+  const R = [["get the coin — training", 1, "#0e8f6e"], ["go right — training", tr, "#d6215a"], ["get the coin — test", 1, "#0e8f6e"], ["go right — test", te, "#d6215a"]];
+  let s = `<title id="pT">Scores</title>`; R.forEach(([l, v, c], i) => s += `<text x="220" y="${32 + i * 38}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${l}</text><rect x="230" y="${14 + i * 38}" width="${v * 420}" height="26" fill="${c}"/><text x="${236 + v * 420}" y="${32 + i * 38}" font-family="ui-monospace,monospace" font-size="12" fill="#0f1626">${(v * 100).toFixed(0)}%</text>`);
+  $("plot").innerHTML = s;
+  $("out").textContent = `training can distinguish the goals only in the ${((1 - tr) * 100).toFixed(0)}% of episodes where the coin is elsewhere${tr === 1 ? " — here, never" : ""}\ntest: “go right” succeeds only when proxy and goal coincide: ${(te * 100).toFixed(0)}%`;
+}
+["tr", "te"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

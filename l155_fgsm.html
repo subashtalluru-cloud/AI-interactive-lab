@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adversarial examples — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:237">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 16, 155 · Lab L155.1</span></p>
+</div></header>
+<main>
+<h1>Adversarial examples: many tiny, aligned nudges</h1>
+<p class="lede">The fast gradient sign method moves every input feature by the same small amount ε, each in whichever direction hurts the prediction most. No single change is noticeable; together they can flip the answer.</p>
+
+<h2>1 · The book’s three-feature classifier</h2>
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="eps">ε (change per feature) <span class="val" id="epsV"></span></label><input type="range" id="eps" min="0" max="0.4" step="0.01" value="0.15"></div>
+  </div>
+</div>
+<p class="readout" id="small"></p>
+
+<h2>2 · The same arithmetic with many pixels</h2>
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="side">Image side (pixels) <span class="val" id="sideV"></span></label><input type="range" id="side" min="4" max="64" step="4" value="32"></div>
+    <div class="control"><label for="eps2">ε per pixel (on a 0–255 scale) <span class="val" id="eps2V"></span></label><input type="range" id="eps2" min="0" max="8" step="0.25" value="1"></div>
+    <div class="control" style="align-self:end"><button id="newimg" class="ghost">New image and weights</button></div>
+  </div>
+</div>
+<div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr))">
+  <figure style="margin:0"><canvas id="c0" width="64" height="64" style="width:100%;image-rendering:pixelated;border-radius:6px" aria-label="Original image"></canvas><figcaption>Original</figcaption></figure>
+  <figure style="margin:0"><canvas id="cp" width="64" height="64" style="width:100%;image-rendering:pixelated;border-radius:6px" aria-label="Perturbation magnified"></canvas><figcaption>Perturbation, magnified to be visible</figcaption></figure>
+  <figure style="margin:0"><canvas id="c1" width="64" height="64" style="width:100%;image-rendering:pixelated;border-radius:6px" aria-label="Attacked image"></canvas><figcaption>Attacked image (looks identical)</figcaption></figure>
+</div>
+<p class="readout" id="big"></p>
+
+<h2>What to notice</h2>
+<p class="finding">In the book’s example, ε = 0.15 lowers the logit by 0.15 × (2 + 3 + 1) = 0.9: from 0.8 (p = 0.69, positive) to −0.10 (p = 0.475, negative).</p>
+<p class="note">In the image panel the logit falls by ε times the sum of all weight magnitudes, which grows with the number of pixels. A change of one grey level per pixel — invisible — moves a 64 × 64 classifier’s logit far more than a 4 × 4 one’s. This linear accumulation in high dimensions is a main reason adversarial examples exist (Goodfellow et al.), and why defences must be tested against deliberate attack, not only random noise (Chapter 155).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const sig = z => 1 / (1 + Math.exp(-z));
+function small() {
+  const e = +$("eps").value; $("epsV").textContent = e.toFixed(2);
+  const w = [2, -3, 1], x = [0.5, 0.2, 0.4], xa = x.map((v, i) => v - e * Math.sign(w[i]));
+  const z = w.reduce((s, wi, i) => s + wi * x[i], 0), za = w.reduce((s, wi, i) => s + wi * xa[i], 0);
+  $("small").textContent =
+    `clean:    x = (${x.join(", ")})   z = ${z.toFixed(2)}   p = ${sig(z).toFixed(3)} → ${sig(z) > .5 ? "positive" : "negative"}\n` +
+    `attacked: x′ = x − ε·sign(w) = (${xa.map(v => v.toFixed(2)).join(", ")})   z′ = ${za.toFixed(2)}   p′ = ${sig(za).toFixed(3)} → ${sig(za) > .5 ? "positive" : "negative"}\n` +
+    `logit change = ε × Σ|wᵢ| = ${e.toFixed(2)} × 6 = ${(e * 6).toFixed(2)}`;
+}
+let W, X;
+function newImg() {
+  const N = 64 * 64; X = new Float32Array(N); W = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const r = i % 64, c = Math.floor(i / 64), d = Math.hypot(r - 32, c - 32);
+    X[i] = Math.max(0, Math.min(255, 160 - d * 2 + 30 * Math.sin(r / 4) * Math.cos(c / 5) + 20 * (Math.random() - .5)));
+    W[i] = (Math.random() - .5) * 0.02;
+  }
+}
+function paint(id, side, f) {
+  const cv = $(id); cv.width = cv.height = side; const g = cv.getContext("2d"), img = g.createImageData(side, side);
+  for (let r = 0; r < side; r++) for (let c = 0; c < side; c++) { const v = f(r * 64 + c), k = (r * side + c) * 4; img.data[k] = img.data[k + 1] = img.data[k + 2] = v; img.data[k + 3] = 255; }
+  g.putImageData(img, 0, 0);
+}
+function big() {
+  const side = +$("side").value, e = +$("eps2").value; $("sideV").textContent = side + " × " + side; $("eps2V").textContent = e.toFixed(2);
+  const idx = []; for (let r = 0; r < side; r++) for (let c = 0; c < side; c++) idx.push(r * 64 + c);
+  const sumAbs = idx.reduce((s, i) => s + Math.abs(W[i]), 0);
+  let z = idx.reduce((s, i) => s + W[i] * X[i], 0); const bias = -z + 1.5; z = 1.5;  // set the clean logit to 1.5 for comparability
+  const za = z - e * sumAbs;
+  paint("c0", side, i => X[i]); paint("cp", side, i => 128 - 110 * Math.sign(W[i])); paint("c1", side, i => Math.max(0, Math.min(255, X[i] - e * Math.sign(W[i]))));
+  $("big").textContent =
+    `${idx.length.toLocaleString()} pixels; Σ|w| = ${sumAbs.toFixed(2)};  clean logit set to 1.50 (p = ${sig(1.5).toFixed(3)})\n` +
+    `attacked logit = 1.50 − ${e.toFixed(2)} × ${sumAbs.toFixed(2)} = ${za.toFixed(2)}   p = ${sig(za).toFixed(3)} → ${sig(za) > .5 ? "still positive" : "FLIPPED to negative"}\n` +
+    `largest change to any pixel: ${e.toFixed(2)} grey levels out of 255 (${(e / 255 * 100).toFixed(2)}%)`;
+}
+$("eps").addEventListener("input", small);
+["side", "eps2"].forEach(id => $(id).addEventListener("input", big));
+$("newimg").onclick = () => { newImg(); big(); };
+newImg(); small(); big();
+</script>
+</main></body></html>

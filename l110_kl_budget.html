@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The KL budget of a VAE — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:265">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 33, 110 · Lab L110.1</span></p>
+</div></header>
+
+<main>
+<h1>The price of an informative code</h1>
+<p class="lede">A VAE’s encoder describes each input as a bell curve N(μ, σ²) in latent space. The KL term charges for how different that curve is from the prior N(0, 1). Move μ and σ and watch the bill.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="mu">Mean μ <span class="val" id="muV"></span></label><input type="range" id="mu" min="-4" max="4" step="0.05" value="1"></div>
+    <div class="control"><label for="sg">Spread σ <span class="val" id="sgV"></span></label><input type="range" id="sg" min="0.03" max="2.5" step="0.01" value="0.5"></div>
+    <div class="control" style="display:flex;gap:.5rem;align-items:end;flex-wrap:wrap">
+      <button class="ghost" data-c="0,1">Case 1: matches prior</button><button class="ghost" data-c="1,0.5">Case 2: informative</button><button class="ghost" data-c="3,0.05">Case 3: very confident</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="curves" viewBox="0 0 720 280" role="img" aria-labelledby="cT"><title id="cT">Encoder distribution against the prior</title></svg>
+  <figcaption>Grey: the prior N(0, 1), where the decoder will be asked to generate from. Cobalt: this input’s code N(μ, σ²).</figcaption>
+</figure>
+
+<figure>
+  <svg id="bill" viewBox="0 0 720 90" role="img" aria-labelledby="bTT"><title id="bTT">The KL cost split into its parts</title></svg>
+  <figcaption>The bill in two parts: ½μ² for moving away from the origin, and ½(σ² − 1 − ln σ²) for a spread different from 1 — which grows without limit as σ shrinks towards zero.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">Case 1 costs nothing and says nothing: every input would get the same code. Case 2 costs 0.82 nats and identifies the input. Case 3 costs about 7 nats — pinning a code to a precise far-away point is expensive.</p>
+<p class="note">Both parts of the charge have a job. The μ part keeps codes near the origin, where sampling will look; the σ part stops codes collapsing to points, so the space between them is filled and decodes to something sensible. Training trades this bill against reconstruction quality (Chapter 110) — the same “stay near a reference unless the data justify moving” leash used in RLHF (Chapter 94).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const N = (x, m, s) => Math.exp(-((x - m) ** 2) / (2 * s * s)) / (s * Math.sqrt(2 * Math.PI));
+function draw() {
+  const mu = +$("mu").value, sg = +$("sg").value;
+  $("muV").textContent = mu.toFixed(2); $("sgV").textContent = sg.toFixed(2);
+  const km = 0.5 * mu * mu, ks = 0.5 * (sg * sg - 1 - Math.log(sg * sg)), kl = km + ks;
+  const xs = Array.from({ length: 401 }, (_, i) => -5 + i / 40);
+  const top = Math.min(8, Math.max(0.45, N(mu, mu, sg)));
+  const X = x => 40 + (x + 5) * 64, Y = y => 250 - Math.min(y, top) / top * 220;
+  let s = `<title id="cT">Distributions</title><line x1="40" y1="250" x2="680" y2="250" stroke="#b8c0cf"/>`;
+  for (let t = -5; t <= 5; t++) s += `<text x="${X(t)}" y="268" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${t}</text>`;
+  s += `<path d="M ${X(-5)} 250 ${xs.map(x => `L ${X(x)} ${Y(N(x, 0, 1))}`).join(" ")} L ${X(5)} 250 Z" fill="#9aa3b5" fill-opacity="0.3" stroke="#6b7488" stroke-width="2"/>`;
+  s += `<path d="M ${X(-5)} 250 ${xs.map(x => `L ${X(x)} ${Y(N(x, mu, sg))}`).join(" ")} L ${X(5)} 250 Z" fill="#1b4de4" fill-opacity="0.25" stroke="#1b4de4" stroke-width="2.5"/>`;
+  if (N(mu, mu, sg) > top) s += `<text x="${X(mu)}" y="24" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#1b4de4">peak ${N(mu, mu, sg).toFixed(1)} (clipped)</text>`;
+  $("curves").innerHTML = s;
+  const scale = 600 / Math.max(8, kl);
+  $("bill").innerHTML = `<title id="bTT">KL parts</title>
+    <rect x="40" y="20" width="${km * scale}" height="30" fill="#e0930b"/>
+    <rect x="${40 + km * scale}" y="20" width="${ks * scale}" height="30" fill="#6c3fd1"/>
+    <text x="40" y="72" font-family="ui-sans-serif,system-ui" font-size="12" fill="#b06f00">location ½μ² = ${km.toFixed(3)}</text>
+    <text x="300" y="72" font-family="ui-sans-serif,system-ui" font-size="12" fill="#6c3fd1">spread ½(σ²−1−ln σ²) = ${ks.toFixed(3)}</text>`;
+  $("out").textContent =
+    `KL = ½(μ² + σ² − 1 − ln σ²) = ½(${(mu * mu).toFixed(3)} + ${(sg * sg).toFixed(4)} − 1 − (${Math.log(sg * sg).toFixed(3)})) = ${kl.toFixed(3)} nats  (${(kl / Math.LN2).toFixed(2)} bits)`;
+}
+document.querySelectorAll("[data-c]").forEach(b => b.onclick = () => { const [m, s] = b.dataset.c.split(","); $("mu").value = m; $("sg").value = s; draw(); });
+["mu", "sg"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The robotics data gap — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:143">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 176 · Lab L176.1</span></p>
+</div></header>
+<main>
+<h1>The robotics data gap</h1>
+<p class="lede">Language models learn from trillions of tokens of text. Robots learn actions from demonstrations that someone had to perform. Compare the scales.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="tok">Text tokens for a language model (trillions) <span class="val" id="tokV"></span></label><input type="range" id="tok" min="1" max="50" step="1" value="15"></div>
+<div class="control"><label for="hrs">Hours of robot demonstrations <span class="val" id="hrsV"></span></label><input type="range" id="hrs" min="2" max="6" step="0.1" value="4"></div>
+<div class="control"><label for="hz">Control steps per second <span class="val" id="hzV"></span></label><input type="range" id="hz" min="5" max="200" step="5" value="50"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 150" role="img" aria-labelledby="pT"><title id="pT">Text tokens against robot action steps, log scale</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">10,000 hours at 50 steps per second = 1.8 × 10⁹ action steps — about 8,000 times fewer than 15 trillion text tokens (Math Box 176.1).</p>
+<p class="note">This is why robot foundation models borrow heavily from vision-language pretraining, internet video and simulation: the knowledge of what objects are and how they behave comes from data that contains no robot actions at all (Chapters 175–176).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const tok = +$("tok").value * 1e12, hrs = 10 ** +$("hrs").value, hz = +$("hz").value; $("tokV").textContent = $("tok").value; $("hrsV").textContent = Math.round(hrs).toLocaleString(); $("hzV").textContent = hz;
+  const steps = hrs * 3600 * hz, W = v => (Math.log10(v) - 6) / 8 * 480;
+  $("plot").innerHTML = `<title id="pT">Gap</title><text x="190" y="46" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">text tokens</text><rect x="200" y="26" width="${W(tok)}" height="30" fill="#1b4de4"/><text x="${206 + W(tok)}" y="46" font-family="ui-monospace,monospace" font-size="11">${tok.toExponential(1)}</text><text x="190" y="106" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">robot action steps</text><rect x="200" y="86" width="${Math.max(2, W(steps))}" height="30" fill="#e0930b"/><text x="${206 + Math.max(2, W(steps))}" y="106" font-family="ui-monospace,monospace" font-size="11">${steps.toExponential(1)}</text>`;
+  $("out").textContent = `${Math.round(hrs).toLocaleString()} h × 3,600 s × ${hz} = ${steps.toExponential(2)} action steps\ntext has ${(tok / steps).toLocaleString(undefined, { maximumFractionDigits: 0 })}× more training units`;
+}
+["tok", "hrs", "hz"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

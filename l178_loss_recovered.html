@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How much of the computation does an explanation capture? — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:117">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 160, 178 · Lab L178.1</span></p>
+</div></header>
+<main>
+<h1>How much of the computation does an explanation capture?</h1>
+<p class="lede">Replace a model’s internal activations with a sparse autoencoder’s reconstruction and see how much worse the model gets. “Loss recovered” sounds reassuring; perplexity shows what the remainder costs.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="L0">Original loss (nats) <span class="val" id="L0V"></span></label><input type="range" id="L0" min="1" max="4" step="0.01" value="2"></div>
+<div class="control"><label for="Ls">Loss with SAE reconstruction <span class="val" id="LsV"></span></label><input type="range" id="Ls" min="1" max="8" step="0.01" value="2.3"></div>
+<div class="control"><label for="Lz">Loss with activations zeroed <span class="val" id="LzV"></span></label><input type="range" id="Lz" min="2" max="12" step="0.1" value="8"></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Loss 2.00 → 2.30 with the SAE, 8.00 with zeros: (8.00 − 2.30)/(8.00 − 2.00) = 95% of the loss recovered — yet perplexity rises from e² ≈ 7.4 to e^2.3 ≈ 10.0 (Math Box 178.1).</p>
+<p class="note">The unexplained residual — sometimes called “dark matter” — can hold exactly the computation one most wants to understand. A 95% figure measures coverage against a very poor baseline, not faithfulness to the model (Chapters 83, 160, 178).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const L0 = +$("L0").value, Ls = +$("Ls").value, Lz = +$("Lz").value; ["L0", "Ls", "Lz"].forEach(k => $(k + "V").textContent = (+$(k).value).toFixed(2));
+  $("out").textContent = `loss recovered = (${Lz.toFixed(2)} − ${Ls.toFixed(2)}) / (${Lz.toFixed(2)} − ${L0.toFixed(2)}) = ${((Lz - Ls) / (Lz - L0) * 100).toFixed(1)}%\nperplexity: original e^${L0.toFixed(2)} = ${Math.exp(L0).toFixed(1)};  with SAE e^${Ls.toFixed(2)} = ${Math.exp(Ls).toFixed(1)}  (×${Math.exp(Ls - L0).toFixed(2)})`;
+}
+["L0", "Ls", "Lz"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What a months-long lag means — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:137">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 172 · Lab L172.1</span></p>
+</div></header>
+<main>
+<h1>What a months-long lag means</h1>
+<p class="lede">Open-weight models trail the frontier by some months. How much capability is that? Under a simple assumption — the frontier closes half its remaining gap to a ceiling every fixed period — a time lag converts into points on a benchmark.</p>
+<p class="note">The growth curve is an illustrative assumption from Chapter 172, not a measured law. [SPECULATIVE]</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="now">Frontier score now (%) <span class="val" id="nowV"></span></label><input type="range" id="now" min="20" max="99" step="1" value="80"></div>
+<div class="control"><label for="h">Months to close half the remaining gap <span class="val" id="hV"></span></label><input type="range" id="h" min="3" max="36" step="1" value="12"></div>
+<div class="control"><label for="lag">Lag of the open model (months) <span class="val" id="lagV"></span></label><input type="range" id="lag" min="0" max="24" step="0.5" value="4"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Frontier curve with the lagging model</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">From 80% with a 12-month half-gap: 90% in a year, 84.1% in 4 months; a model 4 months behind scores about 74.8% (Math Box 172.1).</p>
+<p class="note">Near a benchmark’s ceiling the same lag costs fewer points, so time gaps become hard to measure exactly when they are most discussed. Estimates of the lag in 2025–26 range from about four months to under a year depending on method and domain (Chapter 172).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const now = +$("now").value, h = +$("h").value, lag = +$("lag").value; $("nowV").textContent = now; $("hV").textContent = h; $("lagV").textContent = lag;
+  const S = t => 100 - (100 - now) * 0.5 ** (t / h), X = t => 60 + (t + 24) / 48 * 620, Y = v => 230 - v / 100 * 200;
+  const ts = Array.from({ length: 193 }, (_, i) => -24 + i / 4);
+  let s = `<title id="pT">Lag</title><rect x="60" y="30" width="620" height="200" fill="#f3f5f9" stroke="#d7dce6"/><polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${ts.map(t => `${X(t)},${Y(Math.max(0, S(t)))}`).join(" ")}"/>`;
+  s += `<line x1="${X(0)}" y1="30" x2="${X(0)}" y2="230" stroke="#0f1626" stroke-dasharray="3 4"/><circle cx="${X(0)}" cy="${Y(now)}" r="6" fill="#1b4de4"/><circle cx="${X(0)}" cy="${Y(S(-lag))}" r="6" fill="#d6215a"/><line x1="${X(-lag)}" y1="${Y(S(-lag))}" x2="${X(0)}" y2="${Y(S(-lag))}" stroke="#d6215a" stroke-dasharray="4 3"/>`;
+  [-24, -12, 0, 12, 24].forEach(t => s += `<text x="${X(t)}" y="248" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${t > 0 ? "+" : ""}${t} mo</text>`);
+  $("plot").innerHTML = s;
+  $("out").textContent = `frontier: now ${now}%, +4 mo ${S(4).toFixed(1)}%, +12 mo ${S(12).toFixed(1)}%\nopen model ${lag} months behind: ${S(-lag).toFixed(1)}%  (gap ${(now - S(-lag)).toFixed(1)} points)`;
+}
+["now", "h", "lag"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

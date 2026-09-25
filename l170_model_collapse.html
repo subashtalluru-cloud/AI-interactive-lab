@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model collapse in miniature — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:257">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 28, 170 · Lab L170.1</span></p>
+</div></header>
+<main>
+<h1>Model collapse in miniature</h1>
+<p class="lede">IOP readings drawn from Normal(16, 3²). Each generation fits a normal distribution to 10 samples produced by the previous generation’s model. With replacement, the spread drains away; when real data are kept and synthetic data accumulate alongside them, it does not.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="n">Samples per generation <span class="val" id="nV"></span></label><input type="range" id="n" min="5" max="200" step="1" value="10"></div>
+    <div class="control"><label for="gens">Generations <span class="val" id="gensV"></span></label><input type="range" id="gens" min="5" max="60" step="1" value="20"></div>
+    <div class="control"><label for="mode">Training data each generation</label>
+      <select id="mode"><option value="replace">Replace: only the previous model’s samples</option><option value="acc">Accumulate: all real and synthetic data so far</option></select></div>
+    <div class="control" style="align-self:end"><button id="run">Run 12 lineages</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="sd" viewBox="0 0 720 280" role="img" aria-labelledby="sT"><title id="sT">Fitted standard deviation across generations</title></svg>
+  <figcaption>Each thin line is one lineage’s fitted standard deviation (mmHg). Black dashed: the expected shrinkage √((n−1)/n)ᵍ under replacement. The true value is 3.</figcaption>
+</figure>
+<figure>
+  <svg id="dist" viewBox="0 0 720 200" role="img" aria-labelledby="dT"><title id="dT">True distribution against the last generation's fitted distributions</title></svg>
+  <figcaption>Grey: the true IOP distribution. Coloured: each lineage’s final fitted distribution. The tails — the high pressures that matter clinically — are the first thing lost.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">With 10 samples and replacement, each generation’s expected variance is 0.9 × the last; after 20 generations 0.9²⁰ ≈ 0.12 of the original (0.9²¹ ≈ 0.11 if generation 0’s own fit to the real data is counted, as the readout does) — standard deviation from 3 to about 1 mmHg — while the centre wanders.</p>
+<p class="note">The 0.12 is an <em>average</em> over many lineages. Each generation multiplies the variance by a random factor, and random factors compound unevenly: a few lineages keep much of their spread while the typical one shrinks far more, often below 1 mmHg. Run several batches and compare the median with the expectation.</p>
+<p class="note">Switch to accumulation: the real samples never leave the training set, and the spread stays near 3. This mirrors Shumailov et al. (2024) and the follow-up work on accumulating data (Chapter 170). What a model finds improbable, it under-produces — the rare, the unusual, the minority case, often exactly what matters in medicine.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const gauss = () => Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
+const COLS = ["#1b4de4", "#0e8f6e", "#e0930b", "#d6215a", "#6c3fd1", "#2f6fe0"];
+let runs = null;
+function fit(xs) { const m = xs.reduce((a, b) => a + b) / xs.length; return [m, Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / xs.length)]; }
+function simulate() {
+  const n = +$("n").value, G = +$("gens").value, acc = $("mode").value === "acc";
+  runs = Array.from({ length: 12 }, () => {
+    let pool = Array.from({ length: n }, () => 16 + 3 * gauss());
+    let [m, s] = fit(pool); const hist = [[m, s]];
+    for (let g = 1; g <= G; g++) {
+      const fresh = Array.from({ length: n }, () => m + s * gauss());
+      pool = acc ? pool.concat(fresh) : fresh;
+      [m, s] = fit(pool); hist.push([m, s]);
+    }
+    return hist;
+  });
+}
+function draw() {
+  const n = +$("n").value, G = +$("gens").value;
+  $("nV").textContent = n; $("gensV").textContent = G;
+  if (!runs || runs[0].length !== G + 1) simulate();
+  const X = g => 60 + g / G * 620, Y = v => 250 - v / 4.5 * 220;
+  let s = `<title id="sT">SD across generations</title><rect x="60" y="30" width="620" height="220" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  [0, 1, 2, 3, 4].forEach(v => s += `<line x1="60" y1="${Y(v)}" x2="680" y2="${Y(v)}" stroke="#e3e7ef"/><text x="52" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  runs.forEach((r, i) => s += `<polyline fill="none" stroke="${COLS[i % 6]}" stroke-opacity="0.55" stroke-width="1.8" points="${r.map((h, g) => `${X(g)},${Y(h[1])}`).join(" ")}"/>`);
+  if ($("mode").value === "replace") s += `<polyline fill="none" stroke="#0f1626" stroke-width="2.5" stroke-dasharray="6 4" points="${Array.from({ length: G + 1 }, (_, g) => `${X(g)},${Y(3 * Math.sqrt(((n - 1) / n) ** (g + 1)))}`).join(" ")}"/>`;
+  [0, Math.round(G / 2), G].forEach(g => s += `<text x="${X(g)}" y="268" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">gen ${g}</text>`);
+  $("sd").innerHTML = s;
+  const xs = Array.from({ length: 241 }, (_, i) => 4 + i / 10), pdf = (x, m, sd) => Math.exp(-((x - m) ** 2) / (2 * sd * sd)) / (sd * Math.sqrt(2 * Math.PI));
+  const DX = x => 40 + (x - 4) / 24 * 640, DY = v => 180 - Math.min(v, 0.6) / 0.6 * 160;
+  let d = `<title id="dT">Distributions</title><line x1="40" y1="180" x2="680" y2="180" stroke="#b8c0cf"/>`;
+  d += `<path d="M ${DX(4)} 180 ${xs.map(x => `L ${DX(x)} ${DY(pdf(x, 16, 3))}`).join(" ")} L ${DX(28)} 180 Z" fill="#9aa3b5" fill-opacity="0.35"/>`;
+  runs.forEach((r, i) => { const [m, sd] = r[G]; d += `<polyline fill="none" stroke="${COLS[i % 6]}" stroke-width="1.8" stroke-opacity="0.7" points="${xs.map(x => `${DX(x)},${DY(pdf(x, m, Math.max(sd, 0.05)))}`).join(" ")}"/>`; });
+  [8, 12, 16, 20, 24].forEach(v => d += `<text x="${DX(v)}" y="196" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v} mmHg</text>`);
+  $("dist").innerHTML = d;
+  const fin = runs.map(r => r[G][1]), meanSd = fin.reduce((a, b) => a + b) / fin.length, med = fin.slice().sort((a, b) => a - b)[6];
+  const meanVar = runs.map(r => r[G][1] ** 2).reduce((a, b) => a + b) / runs.length;
+  const tail = runs.map(r => { const [m, sd] = r[G]; return 1 - 0.5 * (1 + erf((21 - m) / (sd * Math.SQRT2))); }).reduce((a, b) => a + b) / runs.length;
+  $("out").textContent =
+    `after ${G} generations: median fitted SD ${med.toFixed(2)} mmHg, mean ${meanSd.toFixed(2)} (true 3.00); mean variance ratio across lineages ${(meanVar / 9).toFixed(2)}` +
+    ($("mode").value === "replace" ? `  (expected ((n−1)/n)^${G + 1} = ${(((n - 1) / n) ** (G + 1)).toFixed(2)})` : "") +
+    `\nshare of generated readings above 21 mmHg: ${(tail * 100).toFixed(1)}%  (true distribution: 4.8%)`;
+}
+function erf(x) { const s = Math.sign(x); x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x);
+  return s * (1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x)); }
+$("run").onclick = () => { simulate(); draw(); };
+["n", "gens"].forEach(id => $(id).addEventListener("input", () => { runs = null; draw(); }));
+$("mode").addEventListener("change", () => { runs = null; draw(); });
+draw();
+</script>
+</main></body></html>

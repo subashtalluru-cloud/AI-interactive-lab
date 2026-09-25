@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memory for an assistant — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:65">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 129 · Lab L129.1</span></p>
+</div></header>
+<main>
+<h1>Memory for an assistant: everything, summaries, or retrieval?</h1>
+<p class="lede">After months of use, an assistant has far more history than it can read on every request. Each memory strategy trades cost against the chance of forgetting something that mattered.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="s">Past sessions <span class="val" id="sV"></span></label><input type="range" id="s" min="5" max="500" step="5" value="50"></div>
+<div class="control"><label for="t">Tokens per session <span class="val" id="tV"></span></label><input type="range" id="t" min="500" max="10000" step="500" value="3000"></div>
+<div class="control"><label for="sum">Summary tokens per session <span class="val" id="sumV"></span></label><input type="range" id="sum" min="50" max="1000" step="50" value="200"></div>
+<div class="control"><label for="k">Memories retrieved per request <span class="val" id="kV"></span></label><input type="range" id="k" min="1" max="20" step="1" value="5"></div>
+<div class="control"><label for="rec">Chance retrieval finds a needed memory <span class="val" id="recV"></span></label><input type="range" id="rec" min="0.5" max="1" step="0.01" value="0.85"></div>
+<div class="control"><label for="keep">Chance a summary keeps a one-off detail <span class="val" id="keepV"></span></label><input type="range" id="keep" min="0.1" max="1" step="0.05" value="0.6"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 200" role="img" aria-labelledby="pT"><title id="pT">Tokens read per request by strategy, log scale</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">50 sessions of 3,000 tokens: everything = 150,000 tokens; summaries = 10,000; a 300-token profile plus 5 retrieved 200-token memories = 1,300 — about 1% of the full history (Math Box 129.1).</p>
+<p class="note">Cheaper strategies risk missing the allergy mentioned once in session 12. The readout estimates that risk from the recall and summary-retention settings, which are illustrative assumptions. Memory is a retrieval problem with the same recall–precision trade-offs as Chapters 21 and 126 — applied to a person’s history, with the privacy duties that brings.</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [s, t, sm, k, rec, keep] = ["s", "t", "sum", "k", "rec", "keep"].map(i => +$(i).value); ["s", "t", "sum", "k"].forEach(i => $(i + "V").textContent = $(i).value); $("recV").textContent = rec.toFixed(2); $("keepV").textContent = keep.toFixed(2);
+  const R = [["Everything in context", s * t, 1, "#d6215a"], ["All summaries", s * sm, keep, "#e0930b"], ["Profile + retrieval", 300 + k * sm, keep * rec, "#0e8f6e"]];
+  const W = v => Math.log10(v) / 7 * 440;
+  let g = `<title id="pT">Memory</title>`; R.forEach(([l, n, , c], i) => g += `<text x="190" y="${45 + i * 55}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${l}</text><rect x="200" y="${25 + i * 55}" width="${W(n)}" height="30" fill="${c}"/><text x="${206 + W(n)}" y="${45 + i * 55}" font-family="ui-monospace,monospace" font-size="11" fill="#0f1626">${n.toLocaleString()}</text>`);
+  $("plot").innerHTML = g;
+  $("out").textContent = R.map(([l, n, p]) => `${l.padEnd(22)} ${n.toLocaleString().padStart(9)} tokens/request (${(n / (s * t) * 100).toFixed(1)}%)   chance a one-off detail is available: ${(p * 100).toFixed(0)}%`).join("\n");
+}
+["s", "t", "sum", "k", "rec", "keep"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

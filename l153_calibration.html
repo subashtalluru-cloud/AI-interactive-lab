@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calibration and temperature scaling — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:245">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 21 &amp; 153 · Lab L153.1</span></p>
+</div></header>
+
+<main>
+<h1>When the model says 95%, is it right 95% of the time?</h1>
+<p class="lede">Two thousand simulated predictions from an overconfident classifier — the typical behaviour of modern deep networks. The reliability diagram shows the gap; one number, the temperature, closes most of it.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="over">How overconfident the model is <span class="val" id="overV"></span></label>
+      <input type="range" id="over" min="0.5" max="3" step="0.05" value="2.2"></div>
+    <div class="control"><label for="T">Temperature applied to its logits <span class="val" id="TV"></span></label>
+      <input type="range" id="T" min="0.3" max="4" step="0.05" value="1"></div>
+    <div class="control"><label for="bins">Number of bins <span class="val" id="binsV"></span></label>
+      <input type="range" id="bins" min="5" max="20" step="1" value="10"></div>
+    <div class="control" style="align-self:end"><button id="fit" class="ghost">Find the best temperature</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="rel" viewBox="0 0 720 340" role="img" aria-labelledby="relT">
+    <title id="relT">Reliability diagram: average confidence in each bin against observed accuracy</title>
+  </svg>
+  <figcaption>Bars show observed frequency of the positive outcome in each confidence bin; the diagonal is perfect calibration. Bars below the diagonal at high confidence mean overconfidence. Bar width reflects how many predictions fall in the bin.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">Temperature scaling divides every logit by one number. It cannot change which cases are ranked higher — the AUC stays exactly the same — yet it can remove most of the calibration error. Ranking (discrimination) and honest probabilities (calibration) are different properties.</p>
+<p class="note">Set the overconfidence to 1: the model is calibrated at T = 1, and any other temperature makes it worse. Calibration found on one population can be lost on another (Chapter 158) — the best temperature must be chosen on data like the deployment data.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+// deterministic pseudo-random numbers so the dataset is the same on every load
+let seed = 7;
+const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+const gauss = () => Math.sqrt(-2 * Math.log(rand() + 1e-12)) * Math.cos(2 * Math.PI * rand());
+const sig = z => 1 / (1 + Math.exp(-z));
+
+const N = 2000;
+const TRUE = Array.from({ length: N }, () => gauss() * 1.3);           // true log-odds
+const Y = TRUE.map(z => (rand() < sig(z) ? 1 : 0));                     // outcomes
+
+function metrics(over, T, nb) {
+  const p = TRUE.map(z => sig((z * over) / T));
+  const bins = Array.from({ length: nb }, () => ({ n: 0, conf: 0, acc: 0 }));
+  p.forEach((v, i) => {
+    const b = Math.min(nb - 1, Math.floor(v * nb));
+    bins[b].n++; bins[b].conf += v; bins[b].acc += Y[i];
+  });
+  let ece = 0;
+  bins.forEach(b => { if (b.n) { b.conf /= b.n; b.acc /= b.n; ece += (b.n / N) * Math.abs(b.conf - b.acc); } });
+  const brier = p.reduce((a, v, i) => a + (v - Y[i]) ** 2, 0) / N;
+  const nll = -p.reduce((a, v, i) => a + Math.log(Y[i] ? Math.max(v, 1e-12) : Math.max(1 - v, 1e-12)), 0) / N;
+  return { p, bins, ece, brier, nll };
+}
+
+// AUC by ranking (unchanged by temperature)
+function auc(p) {
+  const pos = [], neg = [];
+  p.forEach((v, i) => (Y[i] ? pos : neg).push(v));
+  neg.sort((a, b) => a - b);
+  let wins = 0;
+  pos.forEach(v => { let lo = 0, hi = neg.length; while (lo < hi) { const m = (lo + hi) >> 1; neg[m] < v ? lo = m + 1 : hi = m; } wins += lo; });
+  return wins / (pos.length * neg.length);
+}
+
+function draw() {
+  const over = +$("over").value, T = +$("T").value, nb = +$("bins").value;
+  $("overV").textContent = over.toFixed(2) + "×"; $("TV").textContent = T.toFixed(2); $("binsV").textContent = nb;
+  const m = metrics(over, T, nb);
+
+  const X = v => 60 + v * 260, Yy = v => 300 - v * 260;
+  let s = `<title id="relT">Reliability diagram</title>`;
+  s += `<rect x="60" y="40" width="260" height="260" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  s += `<line x1="${X(0)}" y1="${Yy(0)}" x2="${X(1)}" y2="${Yy(1)}" stroke="#4a5468" stroke-dasharray="4 4"/>`;
+  const maxN = Math.max(...m.bins.map(b => b.n));
+  m.bins.forEach((b, k) => {
+    if (!b.n) return;
+    const w = 260 / nb, x = 60 + k * w;
+    const gapCol = b.acc < b.conf ? "#d6215a" : "#1b4de4";
+    s += `<rect x="${x + 2}" y="${Yy(b.acc)}" width="${w - 4}" height="${260 * b.acc}" fill="${gapCol}" fill-opacity="${0.25 + 0.6 * b.n / maxN}"/>`;
+    s += `<circle cx="${X(b.conf)}" cy="${Yy(b.conf)}" r="3" fill="#0f1626"/>`;
+  });
+  [0, .5, 1].forEach(v => {
+    s += `<text x="${X(v)}" y="318" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`;
+    s += `<text x="52" y="${Yy(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`;
+  });
+  s += `<text x="190" y="336" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">predicted probability</text>`;
+
+  // histogram of confidences
+  const H = Array(20).fill(0); m.p.forEach(v => H[Math.min(19, Math.floor(v * 20))]++);
+  const hm = Math.max(...H);
+  s += `<text x="400" y="34" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">How predictions are spread</text>`;
+  H.forEach((h, k) => s += `<rect x="${400 + k * 15}" y="${300 - (h / hm) * 250}" width="13" height="${(h / hm) * 250}" fill="#6c3fd1" fill-opacity="0.7"/>`);
+  s += `<text x="400" y="318" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">0</text><text x="700" y="318" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">1</text>`;
+  $("rel").innerHTML = s;
+
+  $("out").textContent =
+    `ECE = ${m.ece.toFixed(3)}     Brier = ${m.brier.toFixed(3)}     log loss = ${m.nll.toFixed(3)}     AUC = ${auc(m.p).toFixed(3)} (unchanged by T)`;
+}
+
+$("fit").addEventListener("click", () => {
+  const over = +$("over").value;
+  let best = 1, bestL = Infinity;
+  for (let T = 0.3; T <= 4; T += 0.01) { const l = metrics(over, T, 10).nll; if (l < bestL) { bestL = l; best = T; } }
+  $("T").value = best.toFixed(2); draw();
+});
+["over", "T", "bins"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main>
+</body>
+</html>
