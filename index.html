@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="home">
+<header class="masthead"><div class="inner">
+  <div class="spectrum" aria-hidden="true">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+</div></header>
+
+<main>
+<h1>Understanding Artificial Intelligence</h1>
+<p class="lede">From the first question about machine intelligence to reasoning models and agents — explained from first principles for scientifically trained readers, with the mathematics worked by hand and every idea connected to the ones before it.</p>
+
+<h2>Interactive labs</h2>
+<p>Each lab reproduces a worked example from the text and lets you change it. Open one beside the chapter it belongs to.</p>
+<ul class="labgrid">
+  <li style="--hue:212"><a href="labs/l01_timeline.html"><span class="name">A timeline of the field</span>
+      <span class="what">Rules, learning and winters from 1943 to today, linked to chapters. Ch 1–6</span></a></li>
+  <li style="--hue:217"><a href="labs/l04_minimax.html"><span class="name">Game-tree search</span>
+      <span class="what">Minimax on a small tree, and how fast b^d explodes. Ch 4, 5</span></a></li>
+  <li style="--hue:218"><a href="labs/l07_search.html"><span class="name">Five ways to search a map</span>
+      <span class="what">BFS, DFS, uniform-cost, greedy and A* on one map; admissibility. Ch 5, 7</span></a></li>
+  <li style="--hue:223"><a href="labs/l08_truth_tables.html"><span class="name">Truth tables</span>
+      <span class="what">Valid and invalid arguments by brute force; 2ⁿ rows. Ch 8</span></a></li>
+  <li style="--hue:227"><a href="labs/l10_certainty_factors.html"><span class="name">Certainty factors</span>
+      <span class="what">How expert systems combined evidence — and double-counted it. Ch 10, 26</span></a></li>
+  <li style="--hue:235"><a href="labs/l15_gradient_descent.html"><span class="name">Gradient descent on a bowl</span>
+      <span class="what">Fit a line step by step; break it with a large learning rate. Ch 15, 39</span></a></li>
+  <li style="--hue:237"><a href="labs/l16_logistic_fit.html"><span class="name">Fitting a logistic curve to the ten eyes</span>
+      <span class="what">Sigmoid, per-eye cross-entropy, and gradient steps. Ch 16, 28</span></a></li>
+  <li style="--hue:232"><a href="labs/l14_self_supervision.html"><span class="name">Self-supervision: labels for free</span>
+      <span class="what">Every next word is a training target. Ch 13, 14, 77</span></a></li>
+  <li style="--hue:228"><a href="labs/l17_gini_split.html"><span class="name">How a decision tree chooses its question</span>
+      <span class="what">Gini, entropy and error rate on the ten eyes of Chapter 11. Ch 11, 17</span></a></li>
+  <li style="--hue:238"><a href="labs/l17_ensemble_variance.html"><span class="name">Why averaging many models helps</span>
+      <span class="what">Correlated models share mistakes; the variance floor ρσ². Ch 17, 132</span></a></li>
+  <li style="--hue:240"><a href="labs/l18_kmeans.html"><span class="name">k-means, one step at a time</span>
+      <span class="what">Assign, update, repeat — and why different starts end differently. Ch 18</span></a></li>
+  <li style="--hue:242"><a href="labs/l19_cross_validation.html"><span class="name">How much does one validation split tell you?</span>
+      <span class="what">Single splits versus k-fold cross-validation, simulated. Ch 19</span></a></li>
+  <li style="--hue:243"><a href="labs/l20_bias_variance.html"><span class="name">Bias and variance, seen directly</span>
+      <span class="what">Twenty fits of the same model on twenty samples; the U-shaped test error. Ch 20, 43</span></a></li>
+  <li style="--hue:237"><a href="labs/l21_roc.html"><span class="name">One score, many thresholds</span>
+      <span class="what">Confusion matrix and ROC curve on the ten-eye IOP dataset. Ch 16, 21</span></a></li>
+  <li style="--hue:248"><a href="labs/l23_vectors.html"><span class="name">The dot product as an alignment score</span>
+      <span class="what">Drag two arrows; watch length, angle, dot product and cosine. Ch 23, 68, 125</span></a></li>
+  <li style="--hue:248"><a href="labs/l23_embedding_space.html"><span class="name">Meaning as direction</span>
+      <span class="what">Fourteen eye terms as vectors; rank by cosine, search by blended query. Ch 23, 57, 125</span></a></li>
+  <li style="--hue:247"><a href="labs/l22_logs.html"><span class="name">Why logarithms turn products into sums</span>
+      <span class="what">Watch a product underflow to zero while the log-sum carries on. Ch 22, 28</span></a></li>
+  <li style="--hue:250"><a href="labs/l24_matrix.html"><span class="name">What a matrix does to space</span>
+      <span class="what">Edit a 2 × 2 matrix; columns, grid deformation, determinant. Ch 24, 25</span></a></li>
+  <li style="--hue:245"><a href="labs/l26_bayes_dial.html"><span class="name">The Bayes dial</span>
+      <span class="what">Why a positive screening test means so little at low prevalence. Ch 21, 26</span></a></li>
+  <li style="--hue:235"><a href="labs/l27_correlation.html"><span class="name">Correlation and the regression slope</span>
+      <span class="what">Drag points; covariance, r and slope = Cov/Var(x) update live. Ch 15, 27</span></a></li>
+  <li style="--hue:257"><a href="labs/l28_likelihood.html"><span class="name">Maximum likelihood, one toss at a time</span>
+      <span class="what">Watch the likelihood curve peak and narrow as data arrive. Ch 28</span></a></li>
+  <li style="--hue:258"><a href="labs/l29_derivative.html"><span class="name">A derivative tells you which way to move</span>
+      <span class="what">Slope of a one-weight loss, steps, and divergence. Ch 29, 39</span></a></li>
+  <li style="--hue:255"><a href="labs/l32_minibatch.html"><span class="name">Mini-batch gradients</span>
+      <span class="what">Cheap, noisy, unbiased: spread shrinks as 1/√B. Ch 27, 32</span></a></li>
+  <li style="--hue:257"><a href="labs/l33_entropy_kl.html"><span class="name">Entropy, cross-entropy and KL</span>
+      <span class="what">Move P and Q and watch surprise, extra surprise and asymmetry. Ch 28, 33</span></a></li>
+  <li style="--hue:237"><a href="labs/l35_neuron.html"><span class="name">What one neuron does to the plane</span>
+      <span class="what">Rotate, slide and sharpen a decision boundary with w₁, w₂, b. Ch 16, 34, 35</span></a></li>
+  <li style="--hue:270"><a href="labs/l36_activations.html"><span class="name">Four activation functions</span>
+      <span class="what">Values and slopes at any z; what repeated slopes do over depth. Ch 36, 54</span></a></li>
+  <li style="--hue:267"><a href="labs/l37_xor.html"><span class="name">Solving XOR with a hidden layer</span>
+      <span class="what">Edit every weight; see input space and hidden space side by side. Ch 34–37</span></a></li>
+  <li style="--hue:273"><a href="labs/l38_softmax_ce.html"><span class="name">Softmax cross-entropy for one example</span>
+      <span class="what">Drag logits; probabilities, loss and p − y gradients. Ch 38, 82</span></a></li>
+  <li style="--hue:262"><a href="labs/l40_backprop.html"><span class="name">Backpropagation by hand</span>
+      <span class="what">Forward, backward and one update on a 2-2-1 network, with gradient checks. Ch 31, 40</span></a></li>
+  <li style="--hue:272"><a href="labs/l41_parity.html"><span class="name">Why depth helps: parity</span>
+      <span class="what">A tree of XORs versus one wide layer. Ch 41</span></a></li>
+  <li style="--hue:280"><a href="labs/l42_init.html"><span class="name">Why initial weights must be scaled</span>
+      <span class="what">Signal size through ten layers: explode, vanish, or Xavier/He. Ch 42, 54</span></a></li>
+  <li style="--hue:238"><a href="labs/l43_dropout.html"><span class="name">Dropout</span>
+      <span class="what">Random masks, 1/(1 − p) scaling, and the average that stays put. Ch 17, 43</span></a></li>
+  <li style="--hue:283"><a href="labs/l44_image_array.html"><span class="name">An image is a grid of numbers</span>
+      <span class="what">Zoom to pixels; why fully connected layers cannot cope. Ch 44, 45</span></a></li>
+  <li style="--hue:285"><a href="labs/l45_convolution.html"><span class="name">Convolution: one small kernel, slid everywhere</span>
+      <span class="what">Step a kernel across the book’s edge image or a drawn fundus. Ch 45–47</span></a></li>
+  <li style="--hue:287"><a href="labs/l46_output_size.html"><span class="name">Padding, stride and feature-map size</span>
+      <span class="what">Every kernel position counted; the output-size formula made visible. Ch 46</span></a></li>
+  <li style="--hue:287"><a href="labs/l48_lenet.html"><span class="name">A LeNet-style network, layer by layer</span>
+      <span class="what">Shapes and parameter counts; where the parameters live. Ch 46, 48</span></a></li>
+  <li style="--hue:255"><a href="labs/l49_error_drop.html"><span class="name">What a ten-point drop in error means</span>
+      <span class="what">Relative reduction and standard errors, from ImageNet to clinic-sized tests. Ch 27, 49</span></a></li>
+  <li style="--hue:297"><a href="labs/l52_ngram.html"><span class="name">Why fixed windows fail</span>
+      <span class="what">n-gram context explosion and what a short window cannot see. Ch 52</span></a></li>
+  <li style="--hue:293"><a href="labs/l51_transfer.html"><span class="name">Transfer learning</span>
+      <span class="what">Trainable parameters per labelled image under three strategies. Ch 51</span></a></li>
+  <li style="--hue:293"><a href="labs/l54_vanishing.html"><span class="name">Why gradients vanish or explode</span>
+      <span class="what">A one-number RNN, a log-scale gradient plot, and the residual fix. Ch 50, 54, 55</span></a></li>
+  <li style="--hue:328"><a href="labs/l71_positional.html"><span class="name">Positional encoding</span>
+      <span class="what">Sinusoidal “clock hands” as stripes, and similarity by distance. Ch 71</span></a></li>
+  <li style="--hue:265"><a href="labs/l77_sequence_prob.html"><span class="name">Scoring a sentence</span>
+      <span class="what">Product of next-token probabilities, log-probability, perplexity. Ch 33, 77, 83</span></a></li>
+  <li style="--hue:342"><a href="labs/l79_bpe.html"><span class="name">Byte-pair encoding, one merge at a time</span>
+      <span class="what">Watch a tokenizer learn “low” and “-est” from word counts. Ch 79</span></a></li>
+  <li style="--hue:300"><a href="labs/l55_lstm.html"><span class="name">The LSTM cell</span>
+      <span class="what">Additive memory; the gradient along it is the forget gate. Ch 54, 55</span></a></li>
+  <li style="--hue:303"><a href="labs/l57_skipgram.html"><span class="name">Word vectors from co-occurrence</span>
+      <span class="what">Skip-gram with negative sampling, trained live on a tiny clinical corpus. Ch 56, 57</span></a></li>
+  <li style="--hue:307"><a href="labs/l63_qlearning.html"><span class="name">Q-learning on the corridor</span>
+      <span class="what">Watch value flow backwards from the goal, one episode at a time. Ch 58–63</span></a></li>
+  <li style="--hue:317"><a href="labs/l64_ppo_clip.html"><span class="name">PPO’s clipped objective</span>
+      <span class="what">Where the objective goes flat, the update stops pushing. Ch 64, 93</span></a></li>
+  <li style="--hue:320"><a href="labs/l66_path_length.html"><span class="name">Sequential steps and path lengths</span>
+      <span class="what">RNN, convolution and attention compared as n grows. Ch 66</span></a></li>
+  <li style="--hue:323"><a href="labs/l69_attention.html"><span class="name">Attention, computed in full</span>
+      <span class="what">Q, K, V, scores, softmax and the causal mask, every number visible. Ch 68–70, 75</span></a></li>
+  <li style="--hue:327"><a href="labs/l70_softmax.html"><span class="name">Softmax explorer</span>
+      <span class="what">Logits to probabilities; temperature from sharp to flat. Ch 70, 89</span></a></li>
+  <li style="--hue:330"><a href="labs/l81_param_count.html"><span class="name">Where a transformer’s parameters live</span>
+      <span class="what">Attention 4d², FFN 8d², embeddings; presets up to GPT-3. Ch 72, 73, 81</span></a></li>
+  <li style="--hue:348"><a href="labs/l85_scaling.html"><span class="name">Reading a scaling law</span>
+      <span class="what">Fit a power law on small models and extrapolate — with and without a loss floor. Ch 83, 85</span></a></li>
+  <li style="--hue:353"><a href="labs/l86_fewshot.html"><span class="name">Few-shot prompting</span>
+      <span class="what">Examples shift the next-token distribution without training. Ch 86, 137</span></a></li>
+  <li style="--hue:357"><a href="labs/l88_decode_limits.html"><span class="name">Why generation is limited by memory</span>
+      <span class="what">Bandwidth, quantization and batching set tokens per second. Ch 88, 100, 105</span></a></li>
+  <li style="--hue:358"><a href="labs/l89_one_token.html"><span class="name">The journey of one token</span>
+      <span class="what">From “The IOP is” to “high”, every number of a miniature transformer. Ch 89</span></a></li>
+  <li style="--hue:327"><a href="labs/l89_decoding.html"><span class="name">Decoding: the same model, different writers</span>
+      <span class="what">Temperature, top-k and top-p on one next-token distribution; sample 20. Ch 70, 89</span></a></li>
+  <li style="--hue:0"><a href="labs/l91_masked_loss.html"><span class="name">Supervised fine-tuning: only the answer is graded</span>
+      <span class="what">Masked loss over response tokens. Ch 90, 91</span></a></li>
+  <li style="--hue:5"><a href="labs/l94_kl_leash.html"><span class="name">The KL leash</span>
+      <span class="what">Reward minus β × drift; where a reward-model quirk stops winning. Ch 93–95</span></a></li>
+  <li style="--hue:7"><a href="labs/l95_dpo.html"><span class="name">DPO on one preference pair</span>
+      <span class="what">Log-ratio margin, β, and the loss from ln 2 downward. Ch 94, 95</span></a></li>
+  <li style="--hue:5"><a href="labs/l96_scalar_reward.html"><span class="name">Why one preference number blurs trade-offs</span>
+      <span class="what">Weighted helpfulness and harmlessness; when the dangerous answer wins. Ch 93, 96</span></a></li>
+  <li style="--hue:358"><a href="labs/l97_tilt.html"><span class="name">A small tilt with large effects</span>
+      <span class="what">A logit shift at the first token changes the whole response. Ch 89, 97</span></a></li>
+  <li style="--hue:350"><a href="labs/l98_finetune_cost.html"><span class="name">What a fine-tuning job costs</span>
+      <span class="what">Tokens, steps, FLOPs and memory for full, LoRA and QLoRA jobs. Ch 98–100</span></a></li>
+  <li style="--hue:15"><a href="labs/l99_lora.html"><span class="name">LoRA: a change in a few directions</span>
+      <span class="what">Parameter counts to scale, and what a rank-1 update does to vectors. Ch 99</span></a></li>
+  <li style="--hue:17"><a href="labs/l100_quantization.html"><span class="name">Quantization: fewer bits per weight</span>
+      <span class="what">Watch weights snap to a coarser grid; outliers stretch the scale. Ch 100</span></a></li>
+  <li style="--hue:18"><a href="labs/l101_distillation.html"><span class="name">Distillation temperature</span>
+      <span class="what">Soft targets at any T, and the student’s KL loss. Ch 101</span></a></li>
+  <li style="--hue:22"><a href="labs/l103_moe.html"><span class="name">Routing through a mixture of experts</span>
+      <span class="what">Router scores, top-k selection, and total versus active parameters. Ch 103, 168</span></a></li>
+  <li style="--hue:20"><a href="labs/l102_pruning.html"><span class="name">Pruning: which weights can go?</span>
+      <span class="what">Magnitude versus activation-aware pruning. Ch 102</span></a></li>
+  <li style="--hue:357"><a href="labs/l104_roofline.html"><span class="name">Compute-bound or memory-bound?</span>
+      <span class="what">Roofline, ridge point, and what batching does. Ch 104</span></a></li>
+  <li style="--hue:25"><a href="labs/l105_speculative.html"><span class="name">Speculative decoding</span>
+      <span class="what">A draft model guesses ahead; the large model checks in one pass. Ch 105</span></a></li>
+  <li style="--hue:253"><a href="labs/l106_deployment_shift.html"><span class="name">The same model, a different clinic</span>
+      <span class="what">PPV .70 → .33 → .22 as prevalence and camera change. Ch 26, 106</span></a></li>
+  <li style="--hue:28"><a href="labs/l107_sampling.html"><span class="name">Learn a distribution, then sample</span>
+      <span class="what">Noise in, learned transformation, new IOP readings out. Ch 107</span></a></li>
+  <li style="--hue:30"><a href="labs/l108_steps.html"><span class="name">The cost of generating one piece at a time</span>
+      <span class="what">Pixels, visual tokens, audio samples and text compared. Ch 108</span></a></li>
+  <li style="--hue:240"><a href="labs/l109_autoencoder.html"><span class="name">A linear autoencoder rediscovers PCA</span>
+      <span class="what">Rotate the bottleneck; reconstruction error and variance kept. Ch 18, 109</span></a></li>
+  <li style="--hue:265"><a href="labs/l110_kl_budget.html"><span class="name">The price of an informative code</span>
+      <span class="what">Move μ and σ of a VAE code and watch the KL bill. Ch 33, 110</span></a></li>
+  <li style="--hue:35"><a href="labs/l111_gan.html"><span class="name">A GAN in one dimension</span>
+      <span class="what">Generator and discriminator train in turns; losses can hide collapse. Ch 111</span></a></li>
+  <li style="--hue:37"><a href="labs/l112_diffusion_noise.html"><span class="name">The forward process of diffusion</span>
+      <span class="what">Watch a drawn fundus dissolve into noise, one level at a time. Ch 112</span></a></li>
+  <li style="--hue:40"><a href="labs/l114_flow.html"><span class="name">A normalizing flow in one dimension</span>
+      <span class="what">Exact density by inverting and correcting for stretch. Ch 114</span></a></li>
+  <li style="--hue:37"><a href="labs/l115_cfg.html"><span class="name">Classifier-free guidance</span>
+      <span class="what">Extrapolating towards the prompt at w = 1, 3, 7.5. Ch 115</span></a></li>
+  <li style="--hue:38"><a href="labs/l116_video_scale.html"><span class="name">The scale of video</span>
+      <span class="what">Raw values, latents, spacetime tokens and attention cost. Ch 116</span></a></li>
+  <li style="--hue:47"><a href="labs/l118_vit_patches.html"><span class="name">Turning an image into tokens</span>
+      <span class="what">Patch size, resolution, token counts and where small lesions go. Ch 118, 123</span></a></li>
+  <li style="--hue:48"><a href="labs/l119_clip.html"><span class="name">Contrastive learning on a batch of three</span>
+      <span class="what">Row and column softmaxes, temperature, and training steps. Ch 119</span></a></li>
+  <li style="--hue:47"><a href="labs/l120_visual_tokens.html"><span class="name">What images cost a multimodal model</span>
+      <span class="what">Visual tokens, projector size, resamplers, KV memory. Ch 118, 120</span></a></li>
+  <li style="--hue:45"><a href="labs/l121_token_budgets.html"><span class="name">Same content, different token budgets</span>
+      <span class="what">Transcripts, audio frames and OCT volumes compared. Ch 117, 121</span></a></li>
+  <li style="--hue:53"><a href="labs/l122_pipeline.html"><span class="name">Pipeline or native</span>
+      <span class="what">Latency and lost information in a three-model voice chain. Ch 122</span></a></li>
+  <li style="--hue:57"><a href="labs/l124_long_tail.html"><span class="name">Why confident errors cluster in the long tail</span>
+      <span class="what">Accuracy by training frequency; where the errors come from. Ch 124</span></a></li>
+  <li style="--hue:58"><a href="labs/l127_rag_tracer.html"><span class="name">Tracing a RAG answer — and breaking it</span>
+      <span class="what">Scored chunks, the built prompt, and four classic failures. Ch 125–127</span></a></li>
+  <li style="--hue:65"><a href="labs/l129_memory.html"><span class="name">Memory for an assistant</span>
+      <span class="what">Everything, summaries, or retrieval: tokens against forgetting. Ch 129</span></a></li>
+  <li style="--hue:67"><a href="labs/l130_trace_cost.html"><span class="name">What an agent’s trace costs</span>
+      <span class="what">Each step rereads the trace: quadratic token growth. Ch 130, 131</span></a></li>
+  <li style="--hue:68"><a href="labs/l131_compounding.html"><span class="name">How errors compound</span>
+      <span class="what">Per-step reliability, number of steps, and the value of checking. Ch 131, 173</span></a></li>
+  <li style="--hue:107"><a href="labs/l154_robustness.html"><span class="name">Measuring a robustness gap</span>
+      <span class="what">Worst-case corruption and paraphrase consistency. Ch 154</span></a></li>
+  <li style="--hue:237"><a href="labs/l155_fgsm.html"><span class="name">Adversarial examples</span>
+      <span class="what">Many tiny aligned nudges flip a decision; more pixels, bigger effect. Ch 155</span></a></li>
+  <li style="--hue:110"><a href="labs/l156_injection_exposure.html"><span class="name">Rare per document, near-certain per year</span>
+      <span class="what">Prompt-injection exposure over a working year. Ch 156</span></a></li>
+  <li style="--hue:83"><a href="labs/l164_reasoning_compute.html"><span class="name">Buying accuracy with inference compute</span>
+      <span class="what">Reasoning traces, majority vote and verifiers, against cost. Ch 140, 164, 166</span></a></li>
+  <li style="--hue:317"><a href="labs/l165_grpo.html"><span class="name">GRPO: learning from a group of attempts</span>
+      <span class="what">Group-relative advantages and why difficulty filtering matters. Ch 165</span></a></li>
+  <li style="--hue:3"><a href="labs/l166_best_of_n.html"><span class="name">Best-of-N and verifiers</span>
+      <span class="what">More samples help only if you can tell which is right. Ch 92, 166</span></a></li>
+  <li style="--hue:357"><a href="labs/l169_local_model.html"><span class="name">What fits on a clinic workstation?</span>
+      <span class="what">Weights, memory, speed and the training bill of small models. Ch 169</span></a></li>
+  <li style="--hue:257"><a href="labs/l170_model_collapse.html"><span class="name">Model collapse in miniature</span>
+      <span class="what">Training on your own outputs drains the tails; accumulating real data prevents it. Ch 170</span></a></li>
+  <li style="--hue:112"><a href="labs/l157_jailbreak_families.html"><span class="name">The average hides the weakest point</span>
+      <span class="what">Jailbreak success by family, worst case and repeated attempts. Ch 157</span></a></li>
+  <li style="--hue:245"><a href="labs/l158_fairness.html"><span class="name">One model, two groups, several kinds of fair</span>
+      <span class="what">Per-group thresholds; which parities can hold together. Ch 21, 158</span></a></li>
+  <li style="--hue:108"><a href="labs/l159_attribution.html"><span class="name">Who gets the credit?</span>
+      <span class="what">Gradient × input and Shapley values, and why the baseline matters. Ch 159</span></a></li>
+  <li style="--hue:117"><a href="labs/l160_superposition.html"><span class="name">Superposition</span>
+      <span class="what">Three features in two dimensions and the interference they cause. Ch 160</span></a></li>
+  <li style="--hue:118"><a href="labs/l161_rule_of_three.html"><span class="name">What finding nothing proves</span>
+      <span class="what">Rule of three, attempts needed, and failures at deployment scale. Ch 161</span></a></li>
+  <li style="--hue:230"><a href="labs/l162_goal_misgen.html"><span class="name">Perfect in training, wrong goal</span>
+      <span class="what">Why training data cannot separate a proxy from the goal. Ch 162</span></a></li>
+  <li style="--hue:98"><a href="labs/l163_sample_size.html"><span class="name">Is model A really better than B?</span>
+      <span class="what">Simulated evaluations, sample size and paired designs. Ch 149, 163</span></a></li>
+  <li style="--hue:57"><a href="labs/l133_provenance.html"><span class="name">Where did each part of the answer come from?</span>
+      <span class="what">Claim-by-claim provenance and what each needs checked. Ch 133</span></a></li>
+  <li style="--hue:75"><a href="labs/l135_vague_prompt.html"><span class="name">Counting the choices a vague prompt leaves open</span>
+      <span class="what">Specify dimensions and watch 1,944 possible answers shrink. Ch 135</span></a></li>
+  <li style="--hue:242"><a href="labs/l136_prompt_test.html"><span class="name">When a prompt “works” on your examples</span>
+      <span class="what">Revise until perfect on development, then meet the test set. Ch 19, 136</span></a></li>
+  <li style="--hue:253"><a href="labs/l137_fewshot_calibration.html"><span class="name">Detecting and correcting few-shot bias</span>
+      <span class="what">Content-free probe, divide out the lean, watch the answer flip. Ch 137</span></a></li>
+  <li style="--hue:255"><a href="labs/l141_compute_ci.html"><span class="name">Compute it: a confidence interval, shown</span>
+      <span class="what">Paste numbers; every step to a t-based interval. Ch 27, 141</span></a></li>
+  <li style="--hue:80"><a href="labs/l142_quote_check.html"><span class="name">Why asking for quotations makes checking cheap</span>
+      <span class="what">Citation checking versus quote checking: time and errors caught. Ch 142</span></a></li>
+  <li style="--hue:75"><a href="labs/l143_ambiguity.html"><span class="name">The cost of a silent guess</span>
+      <span class="what">Guess, ask, answer both, or state the assumption. Ch 143</span></a></li>
+  <li style="--hue:73"><a href="labs/l145_plateau.html"><span class="name">When prompting is the wrong tool</span>
+      <span class="what">Prompt gains within noise; retrieval gains beyond it. Ch 134, 145</span></a></li>
+  <li style="--hue:13"><a href="labs/l146_cost_scale.html"><span class="name">Prompting, fine-tuning or retrieval: cost at scale</span>
+      <span class="what">Monthly cost and payback of fine-tuning. Ch 146</span></a></li>
+  <li style="--hue:80"><a href="labs/l147_workflow.html"><span class="name">One-shot question or structured workflow?</span>
+      <span class="what">Time spent against errors that get through. Ch 138, 147</span></a></li>
+  <li style="--hue:253"><a href="labs/l148_three_verdicts.html"><span class="name">One model, three verdicts</span>
+      <span class="what">Benchmark accuracy, screening precision and subgroup sensitivity. Ch 148</span></a></li>
+  <li style="--hue:98"><a href="labs/l150_benchmark_flaws.html"><span class="name">Two benchmark design flaws</span>
+      <span class="what">Label errors and multiple-choice guessing, in numbers. Ch 150</span></a></li>
+  <li style="--hue:102"><a href="labs/l151_contamination.html"><span class="name">Is the benchmark score partly memory?</span>
+      <span class="what">Published versus fresh problems: is the gap beyond chance? Ch 151</span></a></li>
+  <li style="--hue:77"><a href="labs/l152_hallucination_scoring.html"><span class="name">Why models guess</span>
+      <span class="what">Scoring rules that reward bluffing, and the penalty that stops it. Ch 136, 152</span></a></li>
+  <li style="--hue:355"><a href="labs/l177_inference_memory.html"><span class="name">Memory at inference</span>
+      <span class="what">KV cache, fixed state, hybrid and retrieval across context lengths. Ch 167, 177</span></a></li>
+  <li style="--hue:257"><a href="labs/l179_ewc.html"><span class="name">Forgetting, and how to resist it</span>
+      <span class="what">Plain fine-tuning versus elastic weight consolidation on a parameter plane. Ch 179</span></a></li>
+  <li style="--hue:133"><a href="labs/l171_data_curation.html"><span class="name">Deduplication and effective data</span>
+      <span class="what">From raw crawl to usable tokens, and how many passes training needs. Ch 171</span></a></li>
+  <li style="--hue:137"><a href="labs/l172_lag.html"><span class="name">What a months-long lag means</span>
+      <span class="what">Converting an open-model lag into benchmark points. Ch 172</span></a></li>
+  <li style="--hue:138"><a href="labs/l173_horizons.html"><span class="name">Extrapolating agent time horizons</span>
+      <span class="what">Doubling trends, how sensitive they are, and 50% versus 80% success. Ch 173, 180</span></a></li>
+  <li style="--hue:47"><a href="labs/l174_zoom.html"><span class="name">Does zooming help?</span>
+      <span class="what">Lesion size through downscaling and cropping. Ch 174</span></a></li>
+  <li style="--hue:225"><a href="labs/l175_world_model.html"><span class="name">Planning inside a learned world model</span>
+      <span class="what">Imagined plans, compounding error and re-planning. Ch 175</span></a></li>
+  <li style="--hue:143"><a href="labs/l176_robot_data.html"><span class="name">The robotics data gap</span>
+      <span class="what">Text tokens against robot action steps. Ch 176</span></a></li>
+  <li style="--hue:117"><a href="labs/l178_loss_recovered.html"><span class="name">How much does an explanation capture?</span>
+      <span class="what">Loss recovered versus perplexity cost. Ch 178</span></a></li>
+  <li style="--hue:245"><a href="labs/l153_calibration.html"><span class="name">Calibration and temperature scaling</span>
+      <span class="what">Reliability diagram, ECE, and one number that fixes overconfidence. Ch 21, 153</span></a></li>
+</ul>
+
+<h2>The seventeen parts</h2>
+<ul class="parts">
+  <li><span class="roman">I</span><span>Before AI: what intelligence is, and the first programs <span class="ch">Ch 1–6</span></span></li>
+  <li><span class="roman">II</span><span>Early AI: search, logic, planning, expert systems, and the flip to learning <span class="ch">Ch 7–12</span></span></li>
+  <li><span class="roman">III</span><span>Classical machine learning <span class="ch">Ch 13–21</span></span></li>
+  <li><span class="roman">IV</span><span>The mathematics of AI <span class="ch">Ch 22–33</span></span></li>
+  <li><span class="roman">V</span><span>Neural networks <span class="ch">Ch 34–43</span></span></li>
+  <li><span class="roman">VI</span><span>Deep learning for images <span class="ch">Ch 44–51</span></span></li>
+  <li><span class="roman">VII</span><span>Sequences, embeddings and reinforcement learning <span class="ch">Ch 52–65</span></span></li>
+  <li><span class="roman">VIII</span><span>The transformer <span class="ch">Ch 66–76</span></span></li>
+  <li><span class="roman">IX</span><span>Large language models <span class="ch">Ch 77–89</span></span></li>
+  <li><span class="roman">X</span><span>Post-training: from base model to assistant <span class="ch">Ch 90–97</span></span></li>
+  <li><span class="roman">XI</span><span>Modern model engineering <span class="ch">Ch 98–106</span></span></li>
+  <li><span class="roman">XII</span><span>Generative AI beyond language <span class="ch">Ch 107–116</span></span></li>
+  <li><span class="roman">XIII</span><span>Multimodal AI <span class="ch">Ch 117–123</span></span></li>
+  <li><span class="roman">XIV</span><span>Retrieval, tools, memory and agents <span class="ch">Ch 124–133</span></span></li>
+  <li><span class="roman">XV</span><span>Interacting with AI intelligently <span class="ch">Ch 134–147</span></span></li>
+  <li><span class="roman">XVI</span><span>Evaluation, failure, safety and trust <span class="ch">Ch 148–163</span></span></li>
+  <li><span class="roman">XVII</span><span>The frontier <span class="ch">Ch 164–180</span></span></li>
+</ul>
+
+<h2>Reference</h2>
+<p>The master concept map, glossary, mathematics and statistics sheets, development checklist, LLM anatomy sheet, prompting sheet, terminology decoder, paper-reading guide and learning roadmaps are in the <code>back/</code> folder of the manuscript.</p>
+</main>
+</body>
+</html>

@@ -1,0 +1,179 @@
+/* Understanding Artificial Intelligence — shared styles
+   Design notes: white lab-bench background; saturated instrument colours
+   borrowed from scientific plotting (cobalt, viridian, amber, crimson,
+   violet); serif body for reading, tabular numerals for live values.
+   One bold element per lab: the live figure. Everything else quiet. */
+
+:root{
+  --paper:#ffffff;
+  --bench:#f3f5f9;          /* panel background */
+  --rule:#d7dce6;
+  --ink:#0f1626;
+  --ink-soft:#4a5468;
+  --cobalt:#1b4de4;
+  --viridian:#0e8f6e;
+  --amber:#e0930b;
+  --crimson:#d6215a;
+  --violet:#6c3fd1;
+  --focus:#1b4de4;
+  --serif: "Charter","Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif;
+  --sans: ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono: ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --maxw: 64rem;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--serif);font-size:1.0625rem;line-height:1.65;
+}
+main{max-width:var(--maxw);margin:0 auto;padding:2.5rem 1.25rem 5rem}
+
+a{color:var(--cobalt);text-underline-offset:.18em}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{
+  outline:3px solid var(--focus);outline-offset:2px;border-radius:2px}
+
+h1,h2,h3{font-family:var(--sans);font-weight:650;letter-spacing:-0.012em;line-height:1.2}
+h1{font-size:clamp(1.9rem,1.3rem + 2vw,2.8rem);margin:0 0 .4rem}
+h2{font-size:1.35rem;margin:2.6rem 0 .6rem}
+h3{font-size:1.05rem;margin:1.8rem 0 .4rem}
+p{max-width:62ch}
+.lede{font-size:1.15rem;color:var(--ink-soft);max-width:60ch;margin:0 0 2rem}
+
+/* masthead: a thin spectrum rule stands for the book's 17 parts */
+.masthead{border-bottom:1px solid var(--rule);background:var(--paper)}
+.masthead .inner{max-width:var(--maxw);margin:0 auto;padding:1rem 1.25rem}
+.spectrum{display:flex;height:6px;border-radius:3px;overflow:hidden}
+.spectrum span{flex:1}
+.crumb{font-family:var(--sans);font-size:.85rem;color:var(--ink-soft);
+  display:flex;gap:.75rem;align-items:baseline;margin-top:.75rem;flex-wrap:wrap}
+
+/* lab furniture */
+.panel{background:var(--bench);border:1px solid var(--rule);border-radius:10px;
+  padding:1.25rem;margin:1.5rem 0}
+.controls{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(13rem,1fr))}
+.control{font-family:var(--sans);font-size:.9rem;color:var(--ink-soft)}
+.control label{display:flex;justify-content:space-between;gap:.5rem;margin-bottom:.3rem}
+.control .val{font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--cobalt)}
+button{font-family:var(--sans);font-size:.9rem;font-weight:600;color:var(--paper);
+  background:var(--ink);border:0;border-radius:6px;padding:.55rem .95rem;cursor:pointer}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--rule)}
+button:hover{opacity:.9}
+
+figure{margin:1.5rem 0}
+figcaption{font-family:var(--sans);font-size:.85rem;color:var(--ink-soft);margin-top:.5rem;max-width:62ch}
+svg{max-width:100%;height:auto;display:block}
+
+table{border-collapse:collapse;width:100%;font-family:var(--sans);font-size:.9rem;
+  font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:.4rem .5rem;border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left}
+thead th{color:var(--ink-soft);font-weight:600}
+
+.readout{font-family:var(--mono);font-size:.95rem;background:var(--paper);
+  border:1px solid var(--rule);border-radius:8px;padding:.75rem 1rem;overflow-x:auto;white-space:pre-wrap;max-width:none}
+.note{border-left:3px solid var(--amber);padding:.25rem 0 .25rem 1rem;color:var(--ink-soft)}
+.finding{border-left:3px solid var(--viridian);padding:.25rem 0 .25rem 1rem}
+
+/* index page */
+.parts{list-style:none;padding:0;margin:2rem 0 0;display:grid;gap:.25rem}
+.parts li{display:grid;grid-template-columns:3.2rem 1fr;gap:1rem;align-items:baseline;
+  padding:.55rem 0;border-bottom:1px solid var(--rule)}
+.parts .roman{font-family:var(--sans);font-weight:700;color:var(--ink-soft);font-size:.9rem}
+.parts .ch{font-family:var(--sans);font-size:.82rem;color:var(--ink-soft)}
+.labgrid{list-style:none;padding:0;margin:1rem 0;display:grid;gap:.75rem;
+  grid-template-columns:repeat(auto-fill,minmax(17rem,1fr))}
+.labgrid a{display:block;padding:.9rem 1rem;border:1px solid var(--rule);border-radius:8px;
+  text-decoration:none;color:var(--ink);background:var(--bench)}
+.labgrid a:hover{border-color:var(--cobalt)}
+.labgrid .name{font-family:var(--sans);font-weight:650;display:block}
+.labgrid .what{font-size:.9rem;color:var(--ink-soft)}
+
+@media (prefers-reduced-motion: reduce){*{animation:none !important;transition:none !important}}
+
+/* narrow screens: keep wide tables and long tokens inside the page */
+main table { display: block; max-width: 100%; overflow-x: auto; }
+.chunk, .readout, #prompt, #sent { overflow-wrap: anywhere; }
+svg, canvas { max-width: 100%; }
+main select { max-width: 100%; }
+
+/* ===== Vibrant layer (visual only; no content changes) ===== */
+:root{
+  --teal:#0aa3b5; --magenta:#c2187a; --lime:#4fa63c; --sky:#2f6fe0;
+  --grad:linear-gradient(90deg,#1b4de4 0%,#6c3fd1 25%,#c2187a 50%,#e0930b 75%,#0e8f6e 100%);
+}
+body{background:
+  radial-gradient(1200px 400px at 10% -10%,rgba(27,77,228,.07),transparent 60%),
+  radial-gradient(900px 380px at 100% 0%,rgba(194,24,122,.06),transparent 60%),#fff}
+.masthead{background:linear-gradient(180deg,#fbfcff,#fff);border-bottom:0;box-shadow:0 1px 0 var(--rule)}
+.spectrum{height:8px}
+.crumb a{font-weight:650}
+h1{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;padding-bottom:.08em}
+@supports not ((-webkit-background-clip:text) or (background-clip:text)){h1{color:var(--cobalt)}}
+h2{position:relative;padding-left:.85rem;color:#12204a}
+h2::before{content:"";position:absolute;left:0;top:.12em;bottom:.12em;width:5px;border-radius:3px;background:var(--cobalt)}
+main h2:nth-of-type(5n+2)::before{background:var(--violet)}
+main h2:nth-of-type(5n+3)::before{background:var(--magenta)}
+main h2:nth-of-type(5n+4)::before{background:var(--amber)}
+main h2:nth-of-type(5n+5)::before{background:var(--viridian)}
+h3{color:var(--violet)}
+.lede{color:#34405a}
+.panel{background:linear-gradient(135deg,#f3f6ff 0%,#f7f2ff 55%,#fff5fa 100%);
+  border:1px solid #dcd8f5;border-top:4px solid transparent;
+  border-image:var(--grad) 1;border-image-slice:1;border-radius:0;
+  box-shadow:0 6px 18px rgba(27,77,228,.07)}
+.control label{color:#3a3f6b}
+.control .val{color:#fff;background:var(--cobalt);border-radius:999px;padding:0 .55rem;font-size:.82rem}
+input[type=range]{accent-color:var(--magenta)}
+button{background:linear-gradient(135deg,#1b4de4,#6c3fd1);box-shadow:0 3px 10px rgba(108,63,209,.28)}
+button:hover{opacity:1;filter:brightness(1.08)}
+button.ghost{background:#fff;color:#3b2a8a;border:1px solid #cfc6f3;box-shadow:none}
+button.ghost:hover{background:#f4f0ff}
+figure{background:#fff;border-radius:12px;padding:.6rem;box-shadow:0 4px 16px rgba(15,22,38,.06);border:1px solid #eceef6}
+figcaption{color:#4b5578}
+thead th,th{color:#3b2a8a;background:#f4f0ff}
+tr:nth-child(even) td{background:#fafbff}
+.readout{background:linear-gradient(180deg,#0f1733,#16204a);color:#e8ecff;border:0;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),0 6px 16px rgba(15,23,51,.18)}
+.finding{background:linear-gradient(90deg,rgba(14,143,110,.10),rgba(14,143,110,0));border-left:5px solid var(--viridian);border-radius:0 8px 8px 0;padding:.6rem 1rem}
+.note{background:linear-gradient(90deg,rgba(224,147,11,.11),rgba(224,147,11,0));border-left:5px solid var(--amber);border-radius:0 8px 8px 0;padding:.6rem 1rem;color:#4a4032}
+/* index */
+.labgrid a{background:#fff;border:1px solid #e3e6f3;border-top:5px solid var(--cobalt);
+  box-shadow:0 3px 12px rgba(15,22,38,.05);transition:transform .15s, box-shadow .15s}
+.labgrid li:nth-child(6n+2) a{border-top-color:var(--violet)}
+.labgrid li:nth-child(6n+3) a{border-top-color:var(--magenta)}
+.labgrid li:nth-child(6n+4) a{border-top-color:var(--amber)}
+.labgrid li:nth-child(6n+5) a{border-top-color:var(--viridian)}
+.labgrid li:nth-child(6n+6) a{border-top-color:var(--teal)}
+.labgrid a:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(27,77,228,.14)}
+.labgrid .name{color:#12204a}
+.parts .roman{color:#fff;background:var(--grad);border-radius:6px;text-align:center;padding:.1rem 0}
+.parts li:hover{background:#f7f5ff}
+
+/* ===== Pastel backgrounds with a gradation across the book =====
+   Each lab page sets --hue from its first chapter (Part I blue → Part XVII green);
+   panels and figures stay near-white so figures and text keep full contrast. */
+body{--hue:230;
+  background:
+    radial-gradient(900px 420px at 0% 0%, hsl(var(--hue) 85% 90% / .75), transparent 65%),
+    radial-gradient(900px 480px at 100% 10%, hsl(calc(var(--hue) + 45) 80% 91% / .7), transparent 65%),
+    linear-gradient(170deg, hsl(var(--hue) 70% 96%) 0%, hsl(calc(var(--hue) + 30) 65% 95%) 55%, hsl(calc(var(--hue) + 70) 60% 96%) 100%);
+  background-attachment:fixed;}
+.masthead{background:hsl(var(--hue) 70% 97% / .85);backdrop-filter:blur(4px)}
+.panel{background:linear-gradient(135deg, hsl(var(--hue) 90% 98%) 0%, hsl(calc(var(--hue) + 40) 85% 97%) 100%)}
+figure,.labgrid a{background:rgba(255,255,255,.92)}
+.finding{background:linear-gradient(90deg,rgba(14,143,110,.13),rgba(255,255,255,.55))}
+.note{background:linear-gradient(90deg,rgba(224,147,11,.14),rgba(255,255,255,.55))}
+/* front page: whole-spectrum pastel sweep, cards tinted by their chapter */
+body.home{background:
+    radial-gradient(1000px 500px at 0% 0%, hsl(210 85% 90% / .8), transparent 60%),
+    radial-gradient(1000px 500px at 100% 30%, hsl(320 80% 91% / .7), transparent 60%),
+    radial-gradient(1000px 600px at 0% 80%, hsl(40 85% 90% / .7), transparent 60%),
+    linear-gradient(180deg, hsl(215 70% 96%), hsl(275 60% 96%) 35%, hsl(335 60% 96%) 65%, hsl(150 50% 95%));
+  background-attachment:fixed}
+.labgrid li a{background:linear-gradient(160deg, hsl(var(--hue,230) 90% 98%), hsl(calc(var(--hue,230) + 35) 85% 96%));
+  border-color:hsl(var(--hue,230) 55% 86%)}
+.control label{align-items:flex-start}
+.control .val{white-space:nowrap;flex:none;align-self:flex-start;line-height:1.5}
