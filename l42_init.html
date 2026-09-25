@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why initial weights must be scaled — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:280">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 42, 54 · Lab L42.1</span></p>
+</div></header>
+<main>
+<h1>Why initial weights must be scaled</h1>
+<p class="lede">Send random signals through ten layers of freshly initialized weights. If each layer multiplies the signal’s size by more than 1, it explodes; by less than 1, it vanishes. The right initial spread keeps it steady.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="n">Units per layer n <span class="val" id="nV"></span></label><input type="range" id="n" min="16" max="1024" step="16" value="256"></div>
+    <div class="control"><label for="sd">Weight standard deviation <span class="val" id="sdV"></span></label><input type="range" id="sd" min="-3" max="0.5" step="0.01" value="-1.204"></div>
+    <div class="control"><label for="act">Activation</label><select id="act"><option value="lin">none (linear)</option><option value="tanh">tanh</option><option value="relu">ReLU</option></select></div>
+    <div class="control" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><button class="ghost" data-s="1">SD 1</button><button class="ghost" data-s="0.01">SD 0.01</button><button class="ghost" data-s="xavier">1/√n (Xavier)</button><button class="ghost" data-s="he">√(2/n) (He)</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 280" role="img" aria-labelledby="pT"><title id="pT">Signal size after each layer, log scale</title></svg>
+  <figcaption>Log scale. Crimson: simulated standard deviation of the activations after each of 10 layers (one random network, 200 inputs). Grey dashed: the prediction √(n·v) per layer for a linear network.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">n = 256: SD 1 multiplies the signal by 16 per layer (10¹² after ten layers); SD 0.01 shrinks it to 0.16 per layer; SD 1/16 = 0.0625 keeps it at 1 (Math Box 42.1).</p>
+<p class="note">With ReLU, Xavier’s 1/√n lets the signal decay, because ReLU zeroes about half of each layer — He’s √(2/n) compensates. With tanh, large weights saturate the units: the signal cannot explode past 1, but the slopes collapse and gradients vanish instead (Chapters 36, 42, 54).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const gauss = () => Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
+function draw() {
+  const n = +$("n").value, sd = 10 ** +$("sd").value, act = $("act").value;
+  $("nV").textContent = n; $("sdV").textContent = sd.toPrecision(3);
+  const f = act === "tanh" ? Math.tanh : act === "relu" ? z => Math.max(0, z) : z => z;
+  let X = Array.from({ length: 200 }, () => Array.from({ length: n }, gauss));
+  const sds = [1];
+  for (let l = 0; l < 10; l++) {
+    const Wt = Array.from({ length: n }, () => Float32Array.from({ length: n }, () => sd * gauss()));
+    X = X.map(x => { const out = new Float32Array(n); for (let j = 0; j < n; j++) { let s = 0; const w = Wt[j]; for (let i = 0; i < n; i++) s += w[i] * x[i]; out[j] = f(s); } return out; });
+    let m = 0, v = 0, c = 0; X.forEach(x => x.forEach(q => { m += q; c++; })); m /= c; X.forEach(x => x.forEach(q => v += (q - m) ** 2 + 0)); 
+    const rms = Math.sqrt(X.reduce((a, x) => a + x.reduce((b, q) => b + q * q, 0), 0) / c);
+    sds.push(isFinite(rms) ? rms : 1e30);
+  }
+  const lo = -14, hi = 14, Xp = l => 70 + l * 60, Y = v => 250 - (Math.max(lo, Math.min(hi, Math.log10(Math.max(v, 1e-30)))) - lo) / (hi - lo) * 220;
+  let s = `<title id="pT">Signal size</title><rect x="60" y="30" width="620" height="220" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  for (let e = lo; e <= hi; e += 4) s += `<line x1="60" y1="${Y(10 ** e)}" x2="680" y2="${Y(10 ** e)}" stroke="#e3e7ef"/><text x="54" y="${Y(10 ** e) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">10^${e}</text>`;
+  s += `<line x1="60" y1="${Y(1)}" x2="680" y2="${Y(1)}" stroke="#0e8f6e" stroke-width="1.5"/>`;
+  const g = Math.sqrt(n) * sd;
+  s += `<polyline fill="none" stroke="#6b7488" stroke-width="2" stroke-dasharray="5 4" points="${sds.map((_, l) => `${Xp(l)},${Y(g ** l)}`).join(" ")}"/>`;
+  s += `<polyline fill="none" stroke="#d6215a" stroke-width="3" points="${sds.map((v, l) => `${Xp(l)},${Y(v)}`).join(" ")}"/>` + sds.map((v, l) => `<circle cx="${Xp(l)}" cy="${Y(v)}" r="4" fill="#d6215a"/>`).join("");
+  sds.forEach((_, l) => s += `<text x="${Xp(l)}" y="268" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${l}</text>`);
+  $("plot").innerHTML = s;
+  $("out").textContent =
+    `pre-activation variance per layer ≈ n × v = ${n} × ${(sd * sd).toPrecision(3)} = ${(n * sd * sd).toPrecision(3)} → factor √(n·v) = ${g.toPrecision(3)} per layer (linear case)\n` +
+    `simulated signal size after layers 1, 5, 10: ${[1, 5, 10].map(l => sds[l].toPrecision(3)).join(", ")}   (${act === "lin" ? "linear" : act})`;
+}
+document.querySelectorAll("[data-s]").forEach(b => b.onclick = () => {
+  const n = +$("n").value, k = b.dataset.s, v = k === "xavier" ? 1 / Math.sqrt(n) : k === "he" ? Math.sqrt(2 / n) : +k;
+  $("sd").value = Math.log10(v); draw();
+});
+["n", "sd"].forEach(id => $(id).addEventListener("change", draw)); $("act").addEventListener("change", draw);
+["n", "sd"].forEach(id => $(id).addEventListener("input", () => { $("nV").textContent = $("n").value; $("sdV").textContent = (10 ** +$("sd").value).toPrecision(3); }));
+draw();
+</script>
+</main></body></html>

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How much does one validation split tell you? — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:242">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 19 · Lab L19.1</span></p>
+</div></header>
+<main>
+<h1>How much does one validation split tell you?</h1>
+<p class="lede">A model’s true error is fixed, but any estimate of it comes from a finite set of cases. A single validation split gives one draw; k-fold cross-validation gives several, and their spread shows how shaky the number is.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="n">Cases available (excluding the test set) <span class="val" id="nV"></span></label><input type="range" id="n" min="50" max="3000" step="50" value="200"></div>
+    <div class="control"><label for="err">True error rate <span class="val" id="errV"></span></label><input type="range" id="err" min="0.02" max="0.4" step="0.01" value="0.15"></div>
+    <div class="control"><label for="k">Folds k <span class="val" id="kV"></span></label><input type="range" id="k" min="2" max="20" step="1" value="5"></div>
+    <div class="control" style="align-self:end"><button id="run">Run 200 experiments</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Distribution of error estimates from single splits and from cross-validation</title></svg>
+  <figcaption>Across 200 repeated experiments: amber = estimates from a single validation split of n/k cases; cobalt = k-fold cross-validation averages. The green line is the true error.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s five folds — 0.12, 0.18, 0.10, 0.15, 0.20 — average 0.15 with a spread of about 0.04. A single split would have reported just one of those numbers, and you would not know whether it was lucky (Math Box 19.1).</p>
+<p class="note">With 200 cases and a 15% error, single 40-case splits range widely; cross-validation narrows the estimate, because every case is used for evaluation once. What it cannot fix: if hyperparameters are tuned on the cross-validation score, that score becomes optimistic — keep a final test set nobody touches (Chapter 19). (This simulation treats each fold’s model as equally good; real folds also vary in the model trained.)</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const bookFolds = [0.12, 0.18, 0.10, 0.15, 0.20];
+let sim = null;
+function simulate() {
+  const n = +$("n").value, e = +$("err").value, k = +$("k").value, m = Math.floor(n / k);
+  const single = [], cv = [];
+  for (let r = 0; r < 200; r++) {
+    const folds = [];
+    for (let f = 0; f < k; f++) { let w = 0; for (let i = 0; i < m; i++) w += Math.random() < e; folds.push(w / m); }
+    single.push(folds[0]); cv.push(folds.reduce((a, b) => a + b) / k);
+  }
+  sim = { single, cv, key: [n, e, k].join() };
+}
+const sd = a => { const m = a.reduce((x, y) => x + y) / a.length; return Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (a.length - 1)); };
+function draw() {
+  const n = +$("n").value, e = +$("err").value, k = +$("k").value;
+  $("nV").textContent = n; $("errV").textContent = e.toFixed(2); $("kV").textContent = k;
+  if (!sim || sim.key !== [n, e, k].join()) simulate();
+  const lo = Math.max(0, e - 0.25), hi = Math.min(1, e + 0.25), bins = 40, w = (hi - lo) / bins;
+  const hist = a => { const h = Array(bins).fill(0); a.forEach(v => { const i = Math.floor((v - lo) / w); if (i >= 0 && i < bins) h[i]++; }); return h; };
+  const hs = hist(sim.single), hc = hist(sim.cv), mx = Math.max(...hs, ...hc);
+  const X = v => 60 + (v - lo) / (hi - lo) * 620;
+  let s = `<title id="pT">Estimates</title><rect x="60" y="20" width="620" height="200" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  hs.forEach((h, i) => s += `<rect x="${X(lo + i * w) + 1}" y="${220 - h / mx * 190}" width="${620 / bins - 2}" height="${h / mx * 190}" fill="#e0930b" fill-opacity="0.55"/>`);
+  hc.forEach((h, i) => s += `<rect x="${X(lo + i * w) + 4}" y="${220 - h / mx * 190}" width="${620 / bins - 8}" height="${h / mx * 190}" fill="#1b4de4" fill-opacity="0.7"/>`);
+  s += `<line x1="${X(e)}" y1="20" x2="${X(e)}" y2="220" stroke="#0e8f6e" stroke-width="3"/>`;
+  for (let v = Math.ceil(lo * 20) / 20; v <= hi + 1e-9; v += 0.05) s += `<text x="${X(v)}" y="238" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v.toFixed(2)}</text>`;
+  $("plot").innerHTML = s;
+  const bm = bookFolds.reduce((a, b) => a + b) / 5;
+  $("out").textContent =
+    `book’s folds: (${bookFolds.join(" + ")}) / 5 = ${bm.toFixed(2)};  SD across folds ${sd(bookFolds).toFixed(3)}\n` +
+    `single split of ${Math.floor(n / k)} cases: estimates spread with SD ${sd(sim.single).toFixed(3)} (middle 90%: ${[...sim.single].sort((a, b) => a - b)[10].toFixed(2)}–${[...sim.single].sort((a, b) => a - b)[189].toFixed(2)})\n` +
+    `${k}-fold CV average: SD ${sd(sim.cv).toFixed(3)} (middle 90%: ${[...sim.cv].sort((a, b) => a - b)[10].toFixed(2)}–${[...sim.cv].sort((a, b) => a - b)[189].toFixed(2)})`;
+}
+$("run").onclick = () => { sim = null; draw(); };
+["n", "err", "k"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thresholds, confusion matrix and ROC — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:237">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 16 &amp; 21 · Labs L21.1–L21.2</span></p>
+</div></header>
+
+<main>
+<h1>One score, many thresholds</h1>
+<p class="lede">The ten eyes from Chapter 11, scored by the logistic model of Chapter 16. The model gives each eye a probability; you choose where to draw the line. Every choice gives a different confusion matrix — and together they trace the ROC curve.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="thr">Decision threshold <span class="val" id="thrV"></span></label>
+      <input type="range" id="thr" min="0" max="1" step="0.005" value="0.5"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="strip" viewBox="0 0 720 160" role="img" aria-labelledby="stripTitle">
+    <title id="stripTitle">Ten eyes placed along the probability axis, with the threshold line</title>
+  </svg>
+  <figcaption>Each eye is placed at its predicted probability of glaucoma. Filled crimson = glaucoma; open grey = healthy. Eyes strictly to the right of the line are called positive.</figcaption>
+</figure>
+
+<div style="display:grid;gap:1.5rem;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));align-items:start">
+  <div>
+    <h3>Confusion matrix</h3>
+    <table>
+      <thead><tr><th></th><th>Predicted glaucoma</th><th>Predicted healthy</th></tr></thead>
+      <tbody>
+        <tr><td>Truly glaucoma</td><td id="tp"></td><td id="fn"></td></tr>
+        <tr><td>Truly healthy</td><td id="fp"></td><td id="tn"></td></tr>
+      </tbody>
+    </table>
+    <div class="readout" id="metrics" style="margin-top:1rem"></div>
+  </div>
+  <figure style="margin:0">
+    <svg id="roc" viewBox="0 0 320 320" role="img" aria-labelledby="rocTitle">
+      <title id="rocTitle">ROC curve with the current operating point</title>
+    </svg>
+    <figcaption id="rocCap"></figcaption>
+  </figure>
+</div>
+
+<h2>What to notice</h2>
+<p class="finding">At a threshold of 0.5 you recover Chapter 21's matrix: TP 3, FP 1, FN 2, TN 4 — sensitivity 0.6, specificity 0.8, precision 0.75.</p>
+<p class="note">The ROC curve does not depend on the threshold at all: it is the staircase you trace by sweeping it. Its area, 0.88, is the fraction of the 25 glaucoma–healthy pairs in which the glaucomatous eye gets the higher score — 22 of 25.</p>
+<p class="note">No threshold gives zero errors. The IOP values overlap (the eye at 21 mmHg is healthy; the one at 19 is not), which is Chapter 11's lesson: the best any single cut-off can do on these data is two errors.</p>
+
+<script>
+const IOP = [14, 16, 18, 19, 21, 22, 24, 25, 27, 30];
+const LAB = [0, 0, 0, 1, 0, 1, 0, 1, 1, 1];
+const PR  = [0.018, 0.047, 0.119, 0.182, 0.378, 0.5, 0.731, 0.818, 0.924, 0.982];
+const $ = id => document.getElementById(id);
+const P = LAB.filter(v => v).length, N = LAB.length - P;
+
+function counts(t, inclusive) {
+  let tp = 0, fp = 0, fn = 0, tn = 0;
+  PR.forEach((p, i) => {
+    const pos = inclusive ? p >= t : p > t;
+    if (pos && LAB[i]) tp++; else if (pos) fp++; else if (LAB[i]) fn++; else tn++;
+  });
+  return { tp, fp, fn, tn };
+}
+
+// ROC points: sweep thresholds at every score plus the extremes
+const THRS = [1.01, ...[...PR].sort((a, b) => b - a), 0];
+const ROC = THRS.map(t => { const c = counts(t, true); return [c.fp / N, c.tp / P]; });
+let auc = 0;
+for (let i = 1; i < ROC.length; i++) auc += (ROC[i][0] - ROC[i - 1][0]) * (ROC[i][1] + ROC[i - 1][1]) / 2;
+
+function draw() {
+  const t = +$("thr").value;
+  $("thrV").textContent = t.toFixed(3);
+  const c = counts(t);
+  ["tp", "fp", "fn", "tn"].forEach(k => $(k).textContent = c[k]);
+  const sens = c.tp / P, spec = c.tn / N;
+  const prec = c.tp + c.fp ? c.tp / (c.tp + c.fp) : NaN;
+  const f1 = prec && sens ? 2 * prec * sens / (prec + sens) : 0;
+  $("metrics").textContent =
+    `accuracy    ${((c.tp + c.tn) / 10).toFixed(2)}\n` +
+    `sensitivity ${sens.toFixed(2)}   (${c.tp} of ${P} glaucomatous eyes flagged)\n` +
+    `specificity ${spec.toFixed(2)}   (${c.tn} of ${N} healthy eyes cleared)\n` +
+    `precision   ${isNaN(prec) ? "undefined (nothing flagged)" : prec.toFixed(2)}\n` +
+    `F1          ${f1.toFixed(3)}`;
+
+  // strip
+  const X = p => 30 + p * 660;
+  let s = `<title id="stripTitle">Eyes along the probability axis</title>`;
+  s += `<line x1="30" y1="80" x2="690" y2="80" stroke="#c9d0dd" stroke-width="2"/>`;
+  [0, 0.25, 0.5, 0.75, 1].forEach(v => s += `<text x="${X(v)}" y="150" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">${v}</text>`);
+  s += `<rect x="${X(t)}" y="30" width="${690 - X(t)}" height="70" fill="#1b4de4" fill-opacity="0.07"/>`;
+  s += `<line x1="${X(t)}" y1="24" x2="${X(t)}" y2="106" stroke="#1b4de4" stroke-width="2.5"/>`;
+  PR.forEach((p, i) => {
+    const yy = 80 + (i % 2 ? -22 : 22) * 0.6;
+    s += LAB[i]
+      ? `<circle cx="${X(p)}" cy="${yy}" r="9" fill="#d6215a"/>`
+      : `<circle cx="${X(p)}" cy="${yy}" r="8" fill="#ffffff" stroke="#4a5468" stroke-width="2"/>`;
+    s += `<text x="${X(p)}" y="${yy + (i % 2 ? -14 : 24)}" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${IOP[i]}</text>`;
+  });
+  $("strip").innerHTML = s;
+
+  // ROC
+  const RX = v => 40 + v * 260, RY = v => 290 - v * 260;
+  let r = `<title id="rocTitle">ROC curve</title>`;
+  r += `<rect x="40" y="30" width="260" height="260" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  r += `<line x1="${RX(0)}" y1="${RY(0)}" x2="${RX(1)}" y2="${RY(1)}" stroke="#c9d0dd" stroke-dasharray="4 4"/>`;
+  r += `<polygon points="${RX(0)},${RY(0)} ${ROC.map(([a, b]) => `${RX(a)},${RY(b)}`).join(" ")} ${RX(1)},${RY(0)}" fill="#0e8f6e" fill-opacity="0.12"/>`;
+  r += `<polyline points="${ROC.map(([a, b]) => `${RX(a)},${RY(b)}`).join(" ")}" fill="none" stroke="#0e8f6e" stroke-width="2.5"/>`;
+  r += `<circle cx="${RX(c.fp / N)}" cy="${RY(sens)}" r="7" fill="#1b4de4"/>`;
+  r += `<text x="170" y="315" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">1 − specificity</text>`;
+  r += `<text x="14" y="160" text-anchor="middle" transform="rotate(-90 14 160)" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">sensitivity</text>`;
+  $("roc").innerHTML = r;
+  $("rocCap").textContent = `Area under the curve = ${auc.toFixed(2)}. The blue dot is the current threshold's operating point.`;
+}
+
+$("thr").addEventListener("input", draw);
+draw();
+</script>
+</main>
+</body>
+</html>

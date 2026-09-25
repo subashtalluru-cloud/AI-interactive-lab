@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Positional encoding — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:328">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 71 · Lab L71.1</span></p>
+</div></header>
+<main>
+<h1>Positional encoding: clock hands for word order</h1>
+<p class="lede">Attention alone sees a set, not a sequence. Sinusoidal encodings give each position a pattern of sine and cosine waves at many speeds — fast hands to tell neighbours apart, slow hands to tell distant positions apart.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="d">Embedding dimension d <span class="val" id="dV"></span></label><input type="range" id="d" min="4" max="128" step="4" value="64"></div>
+<div class="control"><label for="P">Positions shown <span class="val" id="PV"></span></label><input type="range" id="P" min="8" max="256" step="8" value="100"></div>
+<div class="control"><label for="q">Reference position for similarity <span class="val" id="qV"></span></label><input type="range" id="q" min="0" max="255" step="1" value="40"></div>
+</div></div>
+<figure><canvas id="cv" width="640" height="260" style="width:100%;border-radius:8px" aria-label="Encoding matrix as colour stripes"></canvas>
+<figcaption>Rows: positions. Columns: embedding components (sin, cos pairs, fast on the left, slow on the right). Blue positive, red negative.</figcaption></figure>
+<figure><svg id="sim" viewBox="0 0 720 160" role="img" aria-labelledby="sT"><title id="sT">Similarity of the reference position's encoding to every other position</title></svg>
+<figcaption>Dot product between the reference position’s encoding and every other position’s: highest nearby, falling with distance — the geometry that lets attention learn relative offsets.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">With d = 4: position 1 → (0.841, 0.540, 0.010, 1.000); position 2 → (0.909, −0.416, 0.020, 1.000). The fast pair changes a lot between neighbours; the slow pair barely moves (Math Box 71.1).</p>
+<p class="note">Because shifting position by k is a fixed rotation of each (sin, cos) pair, the encoding of p + k is a linear function of the encoding of p — useful for “the word two back” patterns. Modern models mostly use RoPE, which applies such rotations directly to queries and keys (Chapter 71).</p>
+<script>
+const $ = id => document.getElementById(id);
+const pe = (p, d) => { const v = []; for (let i = 0; i < d / 2; i++) { const f = p / 10000 ** (2 * i / d); v.push(Math.sin(f), Math.cos(f)); } return v; };
+function draw() {
+  const d = +$("d").value, P = +$("P").value, q = Math.min(+$("q").value, P - 1);
+  $("dV").textContent = d; $("PV").textContent = P; $("qV").textContent = q;
+  const cv = $("cv"), g = cv.getContext("2d"), W = 640, H = 260, cw = W / d, rh = H / P;
+  for (let p = 0; p < P; p++) { const v = pe(p, d); v.forEach((x, j) => { const t = Math.abs(x); g.fillStyle = x >= 0 ? `rgb(${255 - t * 228},${255 - t * 178},${255 - t * 27})` : `rgb(${255 - t * 41},${255 - t * 222},${255 - t * 165})`; g.fillRect(j * cw, p * rh, Math.ceil(cw), Math.ceil(rh)); }); }
+  g.strokeStyle = "#0f1626"; g.lineWidth = 2; g.strokeRect(0, q * rh, W, Math.max(2, rh));
+  const ref = pe(q, d), sims = Array.from({ length: P }, (_, p) => pe(p, d).reduce((a, x, j) => a + x * ref[j], 0) / (d / 2));
+  const X = p => 40 + p / (P - 1) * 660, Y = v => 80 - v * 60;
+  $("sim").innerHTML = `<title id="sT">Similarity</title><line x1="40" y1="80" x2="700" y2="80" stroke="#b8c0cf"/><polyline fill="none" stroke="#1b4de4" stroke-width="2.5" points="${sims.map((v, p) => `${X(p)},${Y(v)}`).join(" ")}"/><line x1="${X(q)}" y1="15" x2="${X(q)}" y2="145" stroke="#d6215a" stroke-dasharray="4 4"/>`;
+  const b = [0, 1, 2, 3].map(p => pe(p, 4));
+  $("out").textContent = `d = 4 table (Math Box 71.1):\n` + b.map((v, p) => `  p=${p}: (${v.map(x => x.toFixed(3)).join(", ")})`).join("\n") + `\nnormalized similarity of position ${q} to ${q + 1}: ${sims[Math.min(P - 1, q + 1)].toFixed(3)};  to ${Math.min(P - 1, q + 20)}: ${sims[Math.min(P - 1, q + 20)].toFixed(3)}`;
+}
+["d", "P", "q"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

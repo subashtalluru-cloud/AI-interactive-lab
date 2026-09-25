@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Bayes dial — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:245">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 21 &amp; 26 · Lab L26.1</span></p>
+</div></header>
+
+<main>
+<h1>The Bayes dial</h1>
+<p class="lede">A glaucoma screening test with fixed sensitivity and specificity, used in populations with different prevalence. One thousand people, drawn as dots. Watch what happens to the meaning of a positive result.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="prev">Prevalence <span class="val" id="prevVal"></span></label>
+      <input type="range" id="prev" min="0.005" max="0.5" step="0.005" value="0.02"></div>
+    <div class="control"><label for="sens">Sensitivity <span class="val" id="sensVal"></span></label>
+      <input type="range" id="sens" min="0.5" max="0.99" step="0.01" value="0.6"></div>
+    <div class="control"><label for="spec">Specificity <span class="val" id="specVal"></span></label>
+      <input type="range" id="spec" min="0.5" max="0.995" step="0.005" value="0.8"></div>
+  </div>
+  <p style="font-family:var(--sans);font-size:.9rem;margin:1rem 0 0">
+    Presets:
+    <button class="ghost" data-p="0.02">Community screening, 2%</button>
+    <button class="ghost" data-p="0.10">General clinic, 10%</button>
+    <button class="ghost" data-p="0.40">Glaucoma referral clinic, 40%</button>
+  </p>
+</div>
+
+<figure>
+  <svg id="dots" viewBox="0 0 720 380" role="img" aria-labelledby="dotsTitle">
+    <title id="dotsTitle">A grid of one thousand people coloured by disease status and test result</title>
+  </svg>
+  <figcaption>
+    <span style="color:#d6215a">■</span> true positive &nbsp;
+    <span style="color:#e0930b">■</span> false positive &nbsp;
+    <span style="color:#6c3fd1">■</span> false negative (missed) &nbsp;
+    <span style="color:#c9d0dd">■</span> true negative
+  </figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<h2>The same arithmetic, three ways</h2>
+<div class="finding" id="words"></div>
+
+<h2>What to notice</h2>
+<p class="note">At 2% prevalence with sensitivity 0.6 and specificity 0.8 — the book's example — only about 6 in every 100 positives actually have glaucoma (PPV ≈ 0.058). Nothing about the test changed between presets; only who was being tested.</p>
+<p class="note">Specificity dominates at low prevalence. Raise specificity to 0.99 at 2% prevalence and PPV jumps far more than raising sensitivity to 0.99 would achieve, because false positives come from the huge healthy group.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+
+function draw() {
+  const p = +$("prev").value, se = +$("sens").value, sp = +$("spec").value;
+  $("prevVal").textContent = (p * 100).toFixed(1) + "%";
+  $("sensVal").textContent = se.toFixed(2);
+  $("specVal").textContent = sp.toFixed(3);
+
+  const N = 1000;
+  const D = Math.round(N * p), H = N - D;
+  const TP = Math.round(D * se), FN = D - TP;
+  const TN = Math.round(H * sp), FP = H - TN;
+
+  // order dots: TP, FN, FP, TN
+  const cats = [].concat(Array(TP).fill("#d6215a"), Array(FN).fill("#6c3fd1"),
+                         Array(FP).fill("#e0930b"), Array(TN).fill("#c9d0dd"));
+  const cols = 40, r = 6.2, gap = 17.5;
+  let s = `<title id="dotsTitle">One thousand people by test result</title>`;
+  cats.forEach((c, i) => {
+    const x = 16 + (i % cols) * gap, y = 16 + Math.floor(i / cols) * 14.5;
+    s += `<circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/>`;
+  });
+  $("dots").innerHTML = s;
+
+  const ppv = TP / Math.max(1, TP + FP), npv = TN / Math.max(1, TN + FN);
+  const lrp = se / (1 - sp);
+  const priorOdds = p / (1 - p), postOdds = priorOdds * lrp;
+  $("out").textContent =
+    `diseased ${D}   healthy ${H}   |   TP ${TP}   FP ${FP}   FN ${FN}   TN ${TN}\n` +
+    `PPV (a positive is truly diseased) = ${TP}/${TP + FP} = ${ppv.toFixed(3)}     ` +
+    `NPV = ${npv.toFixed(3)}\n` +
+    `LR+ = sens/(1−spec) = ${lrp.toFixed(2)}   prior odds ${priorOdds.toFixed(3)} × LR+ = posterior odds ${postOdds.toFixed(3)} → P = ${(postOdds / (1 + postOdds)).toFixed(3)}`;
+
+  $("words").innerHTML =
+    `<p><strong>Counts:</strong> of ${TP + FP} people who test positive, ${TP} have glaucoma.</p>` +
+    `<p><strong>Bayes' theorem:</strong> P(disease | +) = (${se.toFixed(2)} × ${p.toFixed(3)}) ÷ (${se.toFixed(2)} × ${p.toFixed(3)} + ${(1 - sp).toFixed(3)} × ${(1 - p).toFixed(3)}) = ${((se * p) / (se * p + (1 - sp) * (1 - p))).toFixed(3)}.</p>` +
+    `<p><strong>Odds:</strong> prior odds × likelihood ratio = posterior odds, as above. All three are the same calculation seen from different sides.</p>`;
+}
+
+["prev", "sens", "spec"].forEach(id => $(id).addEventListener("input", draw));
+document.querySelectorAll("button[data-p]").forEach(b =>
+  b.addEventListener("click", () => { $("prev").value = b.dataset.p; draw(); }));
+draw();
+</script>
+</main>
+</body>
+</html>

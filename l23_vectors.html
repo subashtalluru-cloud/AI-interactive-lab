@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vector explorer — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+<style>#plane{touch-action:none;cursor:crosshair;max-width:560px;display:block;margin:auto}</style>
+</head>
+<body style="--hue:248">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 23, 68, 125 · Lab L23.1</span></p>
+</div></header>
+
+<main>
+<h1>The dot product as an alignment score</h1>
+<p class="lede">Drag the tips of the two arrows. The dot product combines how long they are with how closely they point the same way; the cosine keeps only the direction. Attention, semantic search and retrieval are built from this one number.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label><input type="checkbox" id="unit"> Normalize both to unit length (dot product becomes cosine)</label></div>
+    <div class="control"><label><input type="checkbox" id="proj" checked> Show the projection of b onto a</label></div>
+    <div class="control" style="display:flex;gap:.5rem;align-items:end">
+      <button class="ghost" data-p="same">Same direction</button>
+      <button class="ghost" data-p="right">Right angle</button>
+      <button class="ghost" data-p="opp">Opposite</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plane" viewBox="-220 -220 440 440" role="img" aria-labelledby="pT">
+    <title id="pT">Two arrows from the origin; drag their tips</title>
+  </svg>
+  <figcaption>Cobalt: a. Crimson: b. Green: the shadow of b along a's direction — its signed length times ‖a‖ is the dot product. Tips can be dragged; arrow keys move b when the figure has focus.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<h2>The book's toy embedding, computed</h2>
+<p class="readout" id="emb"></p>
+
+<h2>What to notice</h2>
+<p class="finding">Rotate b around a without changing its length: the dot product traces a cosine — largest when aligned, zero at a right angle, negative when opposed. Then stretch b while keeping its direction: the dot product grows but the cosine does not move.</p>
+<p class="note">That is why retrieval systems usually compare cosines (or normalize embeddings first): a long document vector should not win just by being long. Attention (Chapter 68) uses raw dot products, scaled by √d, which lets magnitude carry information too.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const SC = 80; // pixels per unit
+let a = [2, 0.5], b = [1, 1.8], drag = null;
+
+const len = v => Math.hypot(v[0], v[1]);
+const dt = (u, v) => u[0] * v[0] + u[1] * v[1];
+
+function arrow(v, col, lab) {
+  const x = v[0] * SC, y = -v[1] * SC, L = Math.hypot(x, y) || 1, ux = x / L, uy = y / L;
+  const hx = x - ux * 12, hy = y - uy * 12;
+  return `<line x1="0" y1="0" x2="${hx}" y2="${hy}" stroke="${col}" stroke-width="4" stroke-linecap="round"/>
+    <polygon points="${x},${y} ${hx - uy * 7},${hy + ux * 7} ${hx + uy * 7},${hy - ux * 7}" fill="${col}"/>
+    <circle cx="${x}" cy="${y}" r="14" fill="${col}" fill-opacity="0.15" stroke="${col}" data-h="${lab}" style="cursor:grab"/>
+    <text x="${x + 16}" y="${y - 10}" font-family="ui-sans-serif,system-ui" font-size="16" font-weight="700" fill="${col}">${lab}</text>`;
+}
+
+function draw() {
+  let A = a, B = b;
+  if ($("unit").checked) { A = a.map(x => x / (len(a) || 1)); B = b.map(x => x / (len(b) || 1)); }
+  let s = `<title id="pT">Two arrows</title>`;
+  for (let g = -2; g <= 2; g++) {
+    s += `<line x1="${g * SC}" y1="-220" x2="${g * SC}" y2="220" stroke="#e3e7ef"/><line x1="-220" y1="${g * SC}" x2="220" y2="${g * SC}" stroke="#e3e7ef"/>`;
+  }
+  s += `<line x1="-220" y1="0" x2="220" y2="0" stroke="#b8c0cf"/><line x1="0" y1="-220" x2="0" y2="220" stroke="#b8c0cf"/>`;
+  if ($("unit").checked) s += `<circle r="${SC}" fill="none" stroke="#b8c0cf" stroke-dasharray="4 4"/>`;
+  const la = len(A) || 1, t = dt(A, B) / (la * la), P = [A[0] * t, A[1] * t];
+  if ($("proj").checked) {
+    s += `<line x1="${B[0] * SC}" y1="${-B[1] * SC}" x2="${P[0] * SC}" y2="${-P[1] * SC}" stroke="#4a5468" stroke-dasharray="4 4"/>`;
+    s += `<line x1="0" y1="0" x2="${P[0] * SC}" y2="${-P[1] * SC}" stroke="#0e8f6e" stroke-width="8" stroke-opacity="0.55" stroke-linecap="round"/>`;
+  }
+  const ang = Math.acos(Math.max(-1, Math.min(1, dt(A, B) / ((len(A) || 1) * (len(B) || 1)))));
+  const a0 = Math.atan2(A[1], A[0]), cross = A[0] * B[1] - A[1] * B[0], a1 = a0 + (cross >= 0 ? ang : -ang);
+  const r = 36;
+  s += `<path d="M ${r * Math.cos(a0)} ${-r * Math.sin(a0)} A ${r} ${r} 0 0 ${cross >= 0 ? 0 : 1} ${r * Math.cos(a1)} ${-r * Math.sin(a1)}" fill="none" stroke="#e0930b" stroke-width="2.5"/>`;
+  s += arrow(A, "#1b4de4", "a") + arrow(B, "#d6215a", "b");
+  $("plane").innerHTML = s;
+
+  const d = dt(A, B), c = d / ((len(A) || 1) * (len(B) || 1));
+  $("out").textContent =
+    `a = (${A.map(v => v.toFixed(2)).join(", ")})   ‖a‖ = ${len(A).toFixed(3)}\n` +
+    `b = (${B.map(v => v.toFixed(2)).join(", ")})   ‖b‖ = ${len(B).toFixed(3)}\n` +
+    `a · b = ${A[0].toFixed(2)}×${B[0].toFixed(2)} + ${A[1].toFixed(2)}×${B[1].toFixed(2)} = ${d.toFixed(3)}\n` +
+    `angle = ${(ang * 180 / Math.PI).toFixed(1)}°   cos θ = ${c.toFixed(3)}   check: ‖a‖‖b‖cos θ = ${(len(A) * len(B) * c).toFixed(3)}`;
+}
+
+function emb() {
+  const G = [0.9, 0.2, 0.1], O = [0.8, 0.3, 0.1], C = [0.2, 0.9, 0.1];
+  const d3 = (u, v) => u.reduce((s, x, i) => s + x * v[i], 0), n = u => Math.sqrt(d3(u, u));
+  const row = (nm, v) => `${nm}  dot ${d3(G, v).toFixed(2)}   cosine ${(d3(G, v) / (n(G) * n(v))).toFixed(2)}`;
+  $("emb").textContent = `glaucoma (0.9, 0.2, 0.1) compared with\n` +
+    row("ocular hypertension (0.8, 0.3, 0.1):", O) + "\n" + row("cataract            (0.2, 0.9, 0.1):", C) +
+    `\nA search for "glaucoma" ranks ocular hypertension far above cataract — nobody wrote that rule; the vectors point that way.`;
+}
+
+const svg = $("plane");
+function toUnits(e) {
+  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+  return [Math.max(-2.6, Math.min(2.6, p.x / SC)), Math.max(-2.6, Math.min(2.6, -p.y / SC))];
+}
+svg.addEventListener("pointerdown", e => {
+  const p = toUnits(e);
+  drag = Math.hypot(p[0] - a[0], p[1] - a[1]) < Math.hypot(p[0] - b[0], p[1] - b[1]) ? "a" : "b";
+  svg.setPointerCapture(e.pointerId); move(e);
+});
+function move(e) {
+  if (!drag) return;
+  const p = toUnits(e);
+  if ($("unit").checked) { const L = len(p) || 1; p[0] /= L; p[1] /= L; }
+  if (drag === "a") a = p; else b = p; draw();
+}
+svg.addEventListener("pointermove", move);
+svg.addEventListener("pointerup", () => drag = null);
+svg.setAttribute("tabindex", "0");
+svg.addEventListener("keydown", e => {
+  const k = { ArrowLeft: [-.1, 0], ArrowRight: [.1, 0], ArrowUp: [0, .1], ArrowDown: [0, -.1] }[e.key];
+  if (k) { e.preventDefault(); b = [b[0] + k[0], b[1] + k[1]]; draw(); }
+});
+document.querySelectorAll("[data-p]").forEach(btn => btn.onclick = () => {
+  const L = len(b), u = a.map(x => x / len(a));
+  b = { same: [u[0] * L, u[1] * L], right: [-u[1] * L, u[0] * L], opp: [-u[0] * L, -u[1] * L] }[btn.dataset.p]; draw();
+});
+["unit", "proj"].forEach(id => $(id).addEventListener("change", draw));
+draw(); emb();
+</script>
+</main>
+</body>
+</html>

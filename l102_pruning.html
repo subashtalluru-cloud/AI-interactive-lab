@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pruning — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:20">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 102 · Lab L102.1</span></p>
+</div></header>
+<main>
+<h1>Pruning: which weights can go?</h1>
+<p class="lede">Remove the smallest weights and the output barely changes — usually. But a small weight on a large input matters more than its size suggests. Compare magnitude pruning with activation-aware pruning.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="sp">Sparsity (weights removed) <span class="val" id="spV"></span></label><input type="range" id="sp" min="0" max="5" step="1" value="3"></div>
+<div class="control"><label for="x2">Input x₂ <span class="val" id="x2V"></span></label><input type="range" id="x2" min="0" max="25" step="0.5" value="2"></div>
+<div class="control"><label for="m">Method</label><select id="m"><option value="mag">Magnitude |w|</option><option value="act">Activation-aware |w·x|</option></select></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 240" role="img" aria-labelledby="pT"><title id="pT">Weights, their contributions, and which are pruned</title></svg>
+<figcaption>Bars: each weight’s contribution w·x to the output. Faded bars are pruned. The readout compares the output before and after.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">w = (0.9, −0.05, 0.4, 0.02, −0.7, 0.1), x = (1, 2, 0.5, 1.5, 1, 0.8): output 0.41. Removing the three smallest weights leaves 0.40 — half the weights, 0.01 of change (Math Box 102.1).</p>
+<p class="note">Raise x₂ to 20. The “small” weight −0.05 now contributes −1.0, the largest term. Magnitude pruning still removes it and the output jumps; activation-aware pruning (the idea behind Wanda) keeps it. Real pruning is followed by fine-tuning to recover, and structured pruning removes whole units so hardware actually runs faster (Chapter 102).</p>
+<script>
+const $ = id => document.getElementById(id);
+const w = [0.9, -0.05, 0.4, 0.02, -0.7, 0.1];
+function draw() {
+  const k = +$("sp").value, x2 = +$("x2").value, m = $("m").value;
+  $("spV").textContent = `${k} of 6 (${(k / 6 * 100).toFixed(0)}%)`; $("x2V").textContent = x2.toFixed(1);
+  const x = [1, x2, 0.5, 1.5, 1, 0.8], c = w.map((v, i) => v * x[i]);
+  const score = m === "mag" ? w.map(Math.abs) : c.map(Math.abs), order = w.map((_, i) => i).sort((a, b) => score[a] - score[b]), gone = new Set(order.slice(0, k));
+  const full = c.reduce((a, b) => a + b), kept = c.reduce((a, v, i) => a + (gone.has(i) ? 0 : v), 0);
+  const mx = Math.max(1.2, ...c.map(Math.abs)), Y = v => 120 - v / mx * 90;
+  let s = `<title id="pT">Contributions</title><line x1="40" y1="120" x2="700" y2="120" stroke="#b8c0cf"/>`;
+  c.forEach((v, i) => { const X = 70 + i * 105; s += `<rect x="${X}" y="${Math.min(Y(v), 120)}" width="60" height="${Math.abs(Y(v) - 120)}" fill="${v >= 0 ? "#1b4de4" : "#d6215a"}" fill-opacity="${gone.has(i) ? 0.15 : 0.85}" stroke="${gone.has(i) ? "#9aa3b5" : "none"}" stroke-dasharray="3 3"/>`;
+    s += `<text x="${X + 30}" y="226" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#4a5468">w=${w[i]} x=${x[i]}</text><text x="${X + 30}" y="${v >= 0 ? Y(v) - 6 : Y(v) + 14}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#0f1626">${v.toFixed(2)}</text>`; });
+  $("plot").innerHTML = s;
+  $("out").textContent = `pruned by ${m === "mag" ? "|w|" : "|w·x|"}: weights ${[...gone].sort().map(i => i + 1).join(", ") || "none"}\noutput: full ${full.toFixed(3)} → pruned ${kept.toFixed(3)}   change ${(kept - full).toFixed(3)}`;
+}
+["sp", "x2"].forEach(i => $(i).addEventListener("input", draw)); $("m").addEventListener("change", draw); draw();
+</script></main></body></html>

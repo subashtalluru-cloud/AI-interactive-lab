@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A small tilt with large effects — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:358">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 89, 97 · Lab L97.1</span></p>
+</div></header>
+<main>
+<h1>A small tilt with large effects</h1>
+<p class="lede">Post-training often changes a model by only a little per token — but at the first few tokens, a small logit shift can change which kind of response begins, and everything after follows from that start.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="p">Base probability of starting a direct answer <span class="val" id="pV"></span></label><input type="range" id="p" min="0.01" max="0.9" step="0.01" value="0.15"></div>
+<div class="control"><label for="d">Logit tilt from post-training <span class="val" id="dV"></span></label><input type="range" id="d" min="0" max="5" step="0.1" value="2"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 240" role="img" aria-labelledby="pT"><title id="pT">Probability after the tilt, as a function of tilt size</title></svg><figcaption>Curve: probability of starting a direct answer after raising its logit by the tilt. Dot: your settings.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">From 0.15, a tilt of 2.0 gives 0.15 × e² / (0.15 × e² + 0.85) ≈ 0.57 (Math Box 97.1). A modest change to one logit turns a minority behaviour into the majority.</p>
+<p class="note">Because generation is autoregressive, once the answer has begun directly, the base model’s own knowledge makes a direct continuation likely. This is one reason post-training can reshape behaviour so much while changing the model’s knowledge so little — and why its effects can be shallow and easy to undo (Chapters 89, 97, 157).</p>
+<script>
+const $ = id => document.getElementById(id);
+const f = (p, d) => p * Math.exp(d) / (p * Math.exp(d) + 1 - p);
+function draw() {
+  const p = +$("p").value, d = +$("d").value; $("pV").textContent = p.toFixed(2); $("dV").textContent = d.toFixed(1);
+  const X = v => 60 + v / 5 * 620, Y = v => 210 - v * 180, ds = Array.from({ length: 101 }, (_, i) => i / 20);
+  let s = `<title id="pT">Tilt</title><rect x="60" y="30" width="620" height="180" fill="#f3f5f9" stroke="#d7dce6"/><line x1="60" y1="${Y(.5)}" x2="680" y2="${Y(.5)}" stroke="#9aa3b5" stroke-dasharray="4 4"/><polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${ds.map(v => `${X(v)},${Y(f(p, v))}`).join(" ")}"/><circle cx="${X(d)}" cy="${Y(f(p, d))}" r="7" fill="#d6215a"/>`;
+  [0, 1, 2, 3, 4, 5].forEach(v => s += `<text x="${X(v)}" y="228" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  $("plot").innerHTML = s;
+  $("out").textContent = `${p.toFixed(2)} × e^${d.toFixed(1)} / (${p.toFixed(2)} × e^${d.toFixed(1)} + ${(1 - p).toFixed(2)}) = ${(p * Math.exp(d)).toFixed(3)} / ${(p * Math.exp(d) + 1 - p).toFixed(3)} = ${f(p, d).toFixed(3)}\nodds multiplied by e^${d.toFixed(1)} = ${Math.exp(d).toFixed(2)}`;
+}
+["p", "d"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

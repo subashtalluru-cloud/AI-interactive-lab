@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What a matrix does to space — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:250">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 24, 25 · Lab L24.1</span></p>
+</div></header>
+<main>
+<h1>What a matrix does to space</h1>
+<p class="lede">A 2 × 2 matrix sends (1, 0) to its first column and (0, 1) to its second; every other vector follows as a weighted sum. Edit the matrix and watch the whole grid deform.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label>Matrix M (rows)</label><div style="display:grid;grid-template-columns:4.5rem 4.5rem;gap:.3rem"><input id="a" type="number" step="0.1" value="1"><input id="b" type="number" step="0.1" value="-1"><input id="c" type="number" step="0.1" value="1"><input id="d" type="number" step="0.1" value="2"></div></div>
+<div class="control"><label>Vector x</label><div style="display:flex;gap:.3rem"><input id="x" type="number" step="0.5" value="3" style="width:4.5rem"><input id="y" type="number" step="0.5" value="1" style="width:4.5rem"></div></div>
+<div class="control" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><button class="ghost" data-m="1,-1,1,2">Book’s M</button><button class="ghost" data-m="0,-1,1,0">Rotate 90°</button><button class="ghost" data-m="2,0,0,0.5">Stretch/squash</button><button class="ghost" data-m="1,1,0,1">Shear</button><button class="ghost" data-m="1,2,0.5,1">Collapse (det 0)</button></div>
+</div></div>
+<figure><svg id="plot" viewBox="-7 -7 14 14" role="img" aria-labelledby="pT" style="max-width:520px;display:block;margin:auto;background:#f3f5f9;border-radius:8px"><title id="pT">Original grid and transformed grid</title></svg>
+<figcaption>Grey: the original grid. Cobalt: the grid after M. Green and amber arrows: where (1, 0) and (0, 1) land — the columns of M. Crimson: x and Mx.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">M with columns (1, 1) and (−1, 2) sends (3, 1) to 3·(1, 1) + 1·(−1, 2) = (2, 5) (Math Box 24.1).</p>
+<p class="note">The determinant is how much M scales areas: the unit square becomes a parallelogram of that area, negative if flipped. At determinant 0 the plane is flattened onto a line and information is lost — no matrix can undo it. Every layer of a neural network begins with exactly this operation (Chapters 24–25).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [a, b, c, d, x, y] = ["a", "b", "c", "d", "x", "y"].map(i => +$(i).value), T = (u, v) => [a * u + b * v, c * u + d * v], P = ([u, v]) => `${u},${-v}`;
+  let s = `<title id="pT">Grid</title>`;
+  for (let k = -6; k <= 6; k++) { s += `<line x1="-6" y1="${-k}" x2="6" y2="${-k}" stroke="#d7dce6" stroke-width="0.03"/><line x1="${k}" y1="-6" x2="${k}" y2="6" stroke="#d7dce6" stroke-width="0.03"/>`;
+    s += `<line x1="${T(-6, k)[0]}" y1="${-T(-6, k)[1]}" x2="${T(6, k)[0]}" y2="${-T(6, k)[1]}" stroke="#1b4de4" stroke-opacity="0.35" stroke-width="0.04"/><line x1="${T(k, -6)[0]}" y1="${-T(k, -6)[1]}" x2="${T(k, 6)[0]}" y2="${-T(k, 6)[1]}" stroke="#1b4de4" stroke-opacity="0.35" stroke-width="0.04"/>`; }
+  s += `<polygon points="${[[0, 0], [1, 0], [1, 1], [0, 1]].map(q => P(T(...q))).join(" ")}" fill="#6c3fd1" fill-opacity="0.2"/>`;
+  const arr = (q, col, w) => `<line x1="0" y1="0" x2="${q[0]}" y2="${-q[1]}" stroke="${col}" stroke-width="${w}"/><circle cx="${q[0]}" cy="${-q[1]}" r="0.14" fill="${col}"/>`;
+  s += arr(T(1, 0), "#0e8f6e", .1) + arr(T(0, 1), "#e0930b", .1) + arr([x, y], "#9aa3b5", .08) + arr(T(x, y), "#d6215a", .1);
+  $("plot").innerHTML = s;
+  const r = T(x, y), det = a * d - b * c;
+  $("out").textContent = `columns: (${a}, ${c}) and (${b}, ${d})\nM·(${x}, ${y}) = ${x}·(${a}, ${c}) + ${y}·(${b}, ${d}) = (${r[0].toFixed(2)}, ${r[1].toFixed(2)})\nrow check: ${a}×${x} + ${b}×${y} = ${r[0].toFixed(2)};  ${c}×${x} + ${d}×${y} = ${r[1].toFixed(2)}\ndeterminant ad − bc = ${det.toFixed(2)} (area scale${det === 0 ? " — collapsed onto a line" : det < 0 ? ", orientation flipped" : ""})`;
+}
+document.querySelectorAll("[data-m]").forEach(bt => bt.onclick = () => { bt.dataset.m.split(",").forEach((v, i) => $("abcd"[i]).value = v); draw(); });
+["a", "b", "c", "d", "x", "y"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

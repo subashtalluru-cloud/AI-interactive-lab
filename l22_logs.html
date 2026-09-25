@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why logarithms turn products into sums — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:247">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 22, 28 · Lab L22.1</span></p>
+</div></header>
+<main>
+<h1>Why logarithms turn products into sums</h1>
+<p class="lede">The probability a model gives a whole dataset is a product of many numbers below one. Multiply enough of them and the computer runs out of digits. Their logarithms simply add.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="n">Number of examples <span class="val" id="nV"></span></label><input type="range" id="n" min="1" max="3000" step="1" value="3"></div>
+<div class="control"><label for="p">Typical probability per example <span class="val" id="pV"></span></label><input type="range" id="p" min="0.05" max="0.99" step="0.01" value="0.5"></div>
+<div class="control"><label><input type="checkbox" id="book" checked> Use the book’s three probabilities (0.9, 0.5, 0.2)</label></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 240" role="img" aria-labelledby="pT"><title id="pT">Product in 64-bit floating point versus the log-sum</title></svg>
+<figcaption>Crimson: the product as the computer stores it (log₁₀ scale); it hits zero near 10⁻³²⁴ and stays there. Cobalt: the sum of logarithms, which keeps falling smoothly.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">0.9 × 0.5 × 0.2 = 0.09; ln 0.09 = −2.408 = ln 0.9 + ln 0.5 + ln 0.2 (Math Box 22.1).</p>
+<p class="note">At probability 0.5 per example the product underflows to exactly zero after about 1,075 examples — every model then looks equally bad. The log-sum never does. That is why every loss in this book is a sum of logs: cross-entropy, negative log-likelihood, perplexity (Chapters 22, 28, 33).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const bk = $("book").checked, n = bk ? 3 : +$("n").value, p = +$("p").value;
+  $("nV").textContent = n; $("pV").textContent = p.toFixed(2);
+  const ps = bk ? [0.9, 0.5, 0.2] : Array(n).fill(p);
+  let prod = 1, ls = 0; const pr = [0], lg = [0];
+  ps.forEach(v => { prod *= v; ls += Math.log(v); pr.push(prod > 0 ? Math.log10(prod) : -400); lg.push(ls / Math.LN10); });
+  const N = ps.length, lo = Math.min(-400, lg[N] * 1.05), X = i => 60 + i / Math.max(N, 1) * 620, Y = v => 30 + v / lo * 180;
+  let s = `<title id="pT">Underflow</title><rect x="60" y="30" width="620" height="180" fill="#f3f5f9" stroke="#d7dce6"/><line x1="60" y1="${Y(-324)}" x2="680" y2="${Y(-324)}" stroke="#d6215a" stroke-dasharray="4 4"/><text x="676" y="${Y(-324) - 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="10" fill="#d6215a">smallest double ≈ 10⁻³²⁴</text>`;
+  s += `<polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${lg.map((v, i) => `${X(i)},${Y(v)}`).join(" ")}"/><polyline fill="none" stroke="#d6215a" stroke-width="2.5" points="${pr.map((v, i) => `${X(i)},${Y(Math.max(v, lo))}`).join(" ")}"/>`;
+  $("plot").innerHTML = s;
+  $("out").textContent = `product as stored: ${prod === 0 ? "0 (underflow)" : prod.toExponential(4)}\nsum of natural logs: ${ls.toFixed(3)}  → the true product is 10^${(ls / Math.LN10).toFixed(1)}` + (bk ? `\n${ps.map(v => `ln ${v} = ${Math.log(v).toFixed(3)}`).join(";  ")}` : "");
+}
+["n", "p"].forEach(k => $(k).addEventListener("input", () => { $("book").checked = false; draw(); })); $("book").addEventListener("change", draw); draw();
+</script></main></body></html>

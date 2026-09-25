@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The KL leash — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:5">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 93–95 · Lab L94.1</span></p>
+</div></header>
+<main>
+<h1>The KL leash: reward against drift</h1>
+<p class="lede">RLHF rewards responses the reward model likes, minus a penalty for how far the policy’s token probabilities have moved from the reference model’s. The penalty strength β decides whether a reward-model quirk can win.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="beta">β <span class="val" id="betaV"></span></label><input type="range" id="beta" min="0" max="0.5" step="0.005" value="0.1"></div>
+<div class="control"><label for="r1">Response 1 reward <span class="val" id="r1V"></span></label><input type="range" id="r1" min="0" max="4" step="0.1" value="2.0"></div>
+<div class="control"><label for="k1">Response 1 summed log-ratio <span class="val" id="k1V"></span></label><input type="range" id="k1" min="-2" max="12" step="0.1" value="0.6"></div>
+<div class="control"><label for="r2">Response 2 reward <span class="val" id="r2V"></span></label><input type="range" id="r2" min="0" max="4" step="0.1" value="2.5"></div>
+<div class="control"><label for="k2">Response 2 summed log-ratio <span class="val" id="k2V"></span></label><input type="range" id="k2" min="-2" max="12" step="0.1" value="7.0"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Shaped reward of both responses against β</title></svg>
+<figcaption>Shaped reward R = r − β × Σ log-ratio for each response as β varies. Where the lines cross, the preferred response changes. Dot: your β.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">β = 0.1: Response 1 gets 2.0 − 0.1 × 0.6 = 1.94; Response 2, which the reward model scores higher (2.5) but the reference finds very unlikely (log-ratios sum 7.0), gets 2.5 − 0.7 = 1.80. The natural answer wins (Math Box 94.1).</p>
+<p class="note">The crossover here is β ≈ 0.078: below it, the policy is free to chase the reward model’s taste for odd phrasing. Too large a β and the policy barely changes from the reference at all. DPO builds the same trade-off directly into its loss, with β playing the same role (Chapters 93–95).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const b = +$("beta").value, r1 = +$("r1").value, k1 = +$("k1").value, r2 = +$("r2").value, k2 = +$("k2").value;
+  $("betaV").textContent = b.toFixed(3); ["r1", "k1", "r2", "k2"].forEach(i => $(i + "V").textContent = (+$(i).value).toFixed(1));
+  const R = (r, k, bb) => r - bb * k, X = v => 60 + v / 0.5 * 620, Y = v => 130 - v * 35;
+  let s = `<title id="pT">Shaped reward</title><rect x="60" y="20" width="620" height="210" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  [-2, 0, 2].forEach(v => s += `<line x1="60" y1="${Y(v)}" x2="680" y2="${Y(v)}" stroke="#e3e7ef"/><text x="54" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">${v}</text>`);
+  [0, .1, .2, .3, .4, .5].forEach(v => s += `<text x="${X(v)}" y="248" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">β ${v}</text>`);
+  [[r1, k1, "#0e8f6e"], [r2, k2, "#d6215a"]].forEach(([r, k, c]) => s += `<line x1="${X(0)}" y1="${Y(R(r, k, 0))}" x2="${X(.5)}" y2="${Y(R(r, k, .5))}" stroke="${c}" stroke-width="3"/><circle cx="${X(b)}" cy="${Y(R(r, k, b))}" r="6" fill="${c}"/>`);
+  $("plot").innerHTML = s;
+  const a = R(r1, k1, b), c = R(r2, k2, b), cross = Math.abs(k2 - k1) > 1e-9 ? (r2 - r1) / (k2 - k1) : NaN;
+  $("out").textContent =
+    `Response 1: ${r1.toFixed(1)} − ${b.toFixed(3)} × ${k1.toFixed(1)} = ${a.toFixed(3)}\nResponse 2: ${r2.toFixed(1)} − ${b.toFixed(3)} × ${k2.toFixed(1)} = ${c.toFixed(3)}\n` +
+    `preferred: Response ${a >= c ? 1 : 2}   crossover at β = ${isFinite(cross) && cross > 0 ? cross.toFixed(3) : "—"}`;
+}
+["beta", "r1", "k1", "r2", "k2"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

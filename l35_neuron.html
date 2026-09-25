@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One-neuron studio — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:237">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 16, 34, 35 · Lab L35.1</span></p>
+</div></header>
+
+<main>
+<h1>What one neuron does to the plane</h1>
+<p class="lede">A neuron computes σ(w₁x₁ + w₂x₂ + b). Over every possible input it paints the plane: a straight boundary where the output is 0.5, rising smoothly on one side. The weights choose the direction; the bias slides the line; the overall scale sets how sharp it is.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="w1">w₁ <span class="val" id="w1V"></span></label><input type="range" id="w1" min="-4" max="4" step="0.1" value="1"></div>
+    <div class="control"><label for="w2">w₂ <span class="val" id="w2V"></span></label><input type="range" id="w2" min="-4" max="4" step="0.1" value="1"></div>
+    <div class="control"><label for="b">bias b <span class="val" id="bV"></span></label><input type="range" id="b" min="-6" max="6" step="0.1" value="-1"></div>
+    <div class="control"><label for="k">scale all three by <span class="val" id="kV"></span></label><input type="range" id="k" min="0.2" max="6" step="0.1" value="1"></div>
+    <div class="control"><label for="act">activation</label>
+      <select id="act"><option value="sig">sigmoid</option><option value="relu">ReLU</option><option value="step">step (perceptron)</option></select></div>
+  </div>
+</div>
+
+<figure>
+  <canvas id="cv" width="360" height="360" style="width:100%;max-width:480px;display:block;margin:auto;border-radius:10px" aria-label="Neuron output over the input plane"></canvas>
+  <figcaption>Colour shows the output over inputs x₁, x₂ from −3 to 3 (white = 0, cobalt = high). Black line: where w·x + b = 0. Crimson arrow: the weight vector, always perpendicular to the line and pointing towards higher output. Amber dot: a probe point you can click to place.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">Change w₁ and w₂ and the line rotates — it is always at right angles to the weight vector. Change b and the line slides without turning. Scale everything up and the line stays put while the transition sharpens towards a hard step: the perceptron of Chapter 34 is the sigmoid neuron at infinite scale.</p>
+<p class="note">A single neuron can only draw one straight line — this is why XOR needs a hidden layer (Chapter 36). Logistic regression (Chapter 16) is exactly this picture with a sigmoid; its weights are learned rather than set by hand. With ReLU the flat side is exactly 0 and the other side rises without limit — a detector that says “how much”, not “how likely”.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+let probe = [1.5, 0.5];
+const R = 3;
+function draw() {
+  const k = +$("k").value, w1 = +$("w1").value * k, w2 = +$("w2").value * k, b = +$("b").value * k, act = $("act").value;
+  ["w1", "w2", "b", "k"].forEach(id => $(id + "V").textContent = (+$(id).value).toFixed(1));
+  const f = z => act === "sig" ? 1 / (1 + Math.exp(-z)) : act === "relu" ? Math.max(0, z) : (z > 0 ? 1 : 0);
+  const cv = $("cv"), g = cv.getContext("2d"), N = cv.width, img = g.createImageData(N, N);
+  const top = act === "relu" ? Math.max(1, Math.abs(w1) * R + Math.abs(w2) * R + Math.abs(b)) : 1;
+  for (let py = 0; py < N; py++) for (let px = 0; px < N; px++) {
+    const x1 = (px / N) * 2 * R - R, x2 = R - (py / N) * 2 * R;
+    const v = Math.min(1, f(w1 * x1 + w2 * x2 + b) / top), i = (py * N + px) * 4;
+    img.data[i] = 255 - v * (255 - 27); img.data[i + 1] = 255 - v * (255 - 77); img.data[i + 2] = 255 - v * (255 - 228); img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const P = (x1, x2) => [(x1 + R) / (2 * R) * N, (R - x2) / (2 * R) * N];
+  g.strokeStyle = "#e3e7ef"; g.lineWidth = 1;
+  for (let t = -R; t <= R; t++) { let [a] = P(t, 0); g.beginPath(); g.moveTo(a, 0); g.lineTo(a, N); g.stroke(); let [, c] = P(0, t); g.beginPath(); g.moveTo(0, c); g.lineTo(N, c); g.stroke(); }
+  // boundary
+  if (Math.abs(w1) + Math.abs(w2) > 1e-6) {
+    g.strokeStyle = "#0f1626"; g.lineWidth = 2.5; g.beginPath();
+    if (Math.abs(w2) > Math.abs(w1)) { const y = x => -(w1 * x + b) / w2; g.moveTo(...P(-R, y(-R))); g.lineTo(...P(R, y(R))); }
+    else { const x = y => -(w2 * y + b) / w1; g.moveTo(...P(x(-R), -R)); g.lineTo(...P(x(R), R)); }
+    g.stroke();
+    // weight vector from the boundary point closest to origin
+    const n2 = w1 * w1 + w2 * w2, c = [-b * w1 / n2, -b * w2 / n2], L = Math.sqrt(n2), u = [w1 / L, w2 / L];
+    const s0 = P(...c), s1 = P(c[0] + u[0] * 1.2, c[1] + u[1] * 1.2);
+    g.strokeStyle = "#d6215a"; g.fillStyle = "#d6215a"; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(...s0); g.lineTo(...s1); g.stroke();
+    const ang = Math.atan2(s1[1] - s0[1], s1[0] - s0[0]);
+    g.beginPath(); g.moveTo(...s1); g.lineTo(s1[0] - 11 * Math.cos(ang - .4), s1[1] - 11 * Math.sin(ang - .4)); g.lineTo(s1[0] - 11 * Math.cos(ang + .4), s1[1] - 11 * Math.sin(ang + .4)); g.fill();
+  }
+  const pp = P(...probe); g.fillStyle = "#e0930b"; g.strokeStyle = "#0f1626"; g.lineWidth = 1.5;
+  g.beginPath(); g.arc(pp[0], pp[1], 7, 0, Math.PI * 2); g.fill(); g.stroke();
+  const z = w1 * probe[0] + w2 * probe[1] + b;
+  $("out").textContent =
+    `effective weights w = (${w1.toFixed(2)}, ${w2.toFixed(2)}), b = ${b.toFixed(2)}\n` +
+    `probe x = (${probe.map(v => v.toFixed(2)).join(", ")}):  z = ${w1.toFixed(2)}×${probe[0].toFixed(2)} + ${w2.toFixed(2)}×${probe[1].toFixed(2)} + (${b.toFixed(2)}) = ${z.toFixed(3)}  →  output ${f(z).toFixed(3)}\n` +
+    `distance of the boundary from the origin = |b| / ‖w‖ = ${(Math.abs(b) / (Math.hypot(w1, w2) || 1)).toFixed(3)}  (unchanged by scaling)`;
+}
+$("cv").addEventListener("click", e => {
+  const r = e.target.getBoundingClientRect();
+  probe = [((e.clientX - r.left) / r.width) * 2 * R - R, R - ((e.clientY - r.top) / r.height) * 2 * R]; draw();
+});
+["w1", "w2", "b", "k"].forEach(id => $(id).addEventListener("input", draw));
+$("act").addEventListener("change", draw);
+draw();
+</script>
+</main>
+</body>
+</html>

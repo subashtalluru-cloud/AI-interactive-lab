@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A timeline of the field — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:212">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 1–6, 10, 12 · Lab L1.1</span></p>
+</div></header>
+<main>
+<h1>A timeline of the field</h1>
+<p class="lede">Eighty years of artificial intelligence, as alternating waves of rules and learning, optimism and winter. Filter by kind of idea and follow each event to the chapter that explains it.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="f">Show</label><select id="f"><option value="all">Everything</option><option value="rules">Rules, logic and search</option><option value="learn">Learning from data</option><option value="winter">Setbacks and winters</option></select></div>
+</div></div>
+<figure><svg id="tl" viewBox="0 0 720 360" role="img" aria-labelledby="tT"><title id="tT">Timeline of AI from 1943</title></svg>
+<figcaption>Cobalt: rules, logic and search. Green: learning from data. Crimson bands: periods of reduced funding and confidence. Dates are to the year; chapter numbers are where each event is discussed.</figcaption></figure>
+<ol id="list" style="font-family:var(--sans);font-size:.95rem"></ol>
+<h2>What to notice</h2>
+<p class="finding">The two traditions ran side by side from the start: the perceptron (learning) is almost as old as the Dartmouth proposal (rules). Each winter followed promises that outran what the methods of the day could deliver.</p>
+<p class="note">The learning tradition won not because rules were wrong, but because data and compute eventually made learning cheaper than writing knowledge by hand — the “flip” of Chapter 12. Whether today’s pace continues is an open question (Chapter 180).</p>
+<script>
+const $ = id => document.getElementById(id);
+const EV = [
+  [1943, "learn", "McCulloch and Pitts: a mathematical neuron", 2], [1950, "rules", "Turing asks whether machines can think", 2],
+  [1956, "rules", "Dartmouth workshop names “artificial intelligence”", 3], [1958, "learn", "Rosenblatt’s perceptron learns from examples", 4],
+  [1959, "learn", "Samuel’s checkers program improves by self-play", 4], [1966, "rules", "ELIZA: conversation by pattern-matching", 4],
+  [1969, "winter", "Minsky and Papert expose the perceptron’s limits", 6], [1973, "winter", "Lighthill report; funding cuts — the first winter", 6],
+  [1976, "rules", "MYCIN: rule-based diagnosis of infections", 10], [1980, "rules", "XCON: expert systems go commercial", 10],
+  [1986, "learn", "Backpropagation popularized for multi-layer networks", 40], [1988, "winter", "Expert-system market collapses — the second winter", 6],
+  [1997, "rules", "Deep Blue defeats Kasparov with search", 4], [2012, "learn", "AlexNet: deep learning wins ImageNet", 49],
+  [2017, "learn", "The transformer: attention is all you need", 66], [2022, "learn", "Chat-tuned language models reach the public", 92]];
+function draw() {
+  const f = $("f").value, ev = EV.filter(e => f === "all" || e[1] === f), X = y => 40 + (y - 1940) / 90 * 640;
+  let s = `<title id="tT">Timeline</title>`;
+  [[1974, 1980], [1987, 1993]].forEach(([a, b]) => s += `<rect x="${X(a)}" y="20" width="${X(b) - X(a)}" height="310" fill="#d6215a" fill-opacity="0.08"/>`);
+  s += `<line x1="40" y1="180" x2="680" y2="180" stroke="#0f1626" stroke-width="2"/>`;
+  for (let y = 1940; y <= 2030; y += 10) s += `<line x1="${X(y)}" y1="175" x2="${X(y)}" y2="185" stroke="#0f1626"/><text x="${X(y)}" y="200" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">${y}</text>`;
+  ev.forEach(([y, k, t], i) => { const up = i % 2 === 0, lvl = (Math.floor(i / 2) % 4), yy = up ? 160 - lvl * 36 : 215 + lvl * 32, c = k === "learn" ? "#0e8f6e" : k === "rules" ? "#1b4de4" : "#d6215a";
+    s += `<line x1="${X(y)}" y1="180" x2="${X(y)}" y2="${yy}" stroke="${c}" stroke-opacity="0.5"/><circle cx="${X(y)}" cy="180" r="5" fill="${c}"/><text x="${X(y) + 3}" y="${yy + (up ? -2 : 10)}" font-family="ui-sans-serif,system-ui" font-size="10" fill="${c}">${y}</text>`; });
+  $("tl").innerHTML = s;
+  $("list").innerHTML = ev.map(([y, k, t, ch]) => `<li><strong>${y}</strong> — ${t} <span style="color:#4a5468">(Chapter ${ch})</span></li>`).join("");
+}
+$("f").addEventListener("change", draw); draw();
+</script></main></body></html>

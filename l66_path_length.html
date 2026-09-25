@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sequential steps and path lengths — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:320">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 66 · Lab L66.1</span></p>
+</div></header>
+<main>
+<h1>Sequential steps and path lengths</h1>
+<p class="lede">How far apart can two words be before a model struggles to connect them? Compare how many sequential steps each architecture needs, and how many hops separate the first token from the last.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="n">Sequence length n <span class="val" id="nV"></span></label><input type="range" id="n" min="10" max="10000" step="10" value="1000"></div>
+<div class="control"><label for="k">Convolution kernel width k <span class="val" id="kV"></span></label><input type="range" id="k" min="3" max="31" step="2" value="5"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 220" role="img" aria-labelledby="pT"><title id="pT">Path length between first and last token by architecture</title></svg><figcaption>Log scale. Bars: maximum number of hops between the first and last tokens.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">1,000 tokens: an RNN needs 1,000 sequential steps and a 999-step path; a width-5 convolution stack needs about 250 layers before the ends meet; self-attention connects them in one step (Math Box 66.1).</p>
+<p class="note">One hop means gradients and information do not have to survive a long chain — no vanishing along the way (Chapter 54). The price is that every position compares with every other: n² scores per head per layer, which is why long contexts are expensive (Chapters 66, 167).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const n = +$("n").value, k = +$("k").value; $("nV").textContent = n.toLocaleString(); $("kV").textContent = k;
+  const rows = [["RNN / LSTM", n - 1, n, "#d6215a"], [`Convolution (k = ${k})`, Math.ceil((n - 1) / (k - 1)), 1, "#e0930b"], ["Self-attention", 1, 1, "#1b4de4"]];
+  const Y = i => 30 + i * 60, W = v => Math.log10(Math.max(v, 1)) / Math.log10(10000) * 480 + 8;
+  let s = `<title id="pT">Paths</title>`;
+  rows.forEach(([l, p, st, c], i) => s += `<text x="180" y="${Y(i) + 24}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="13" fill="#0f1626">${l}</text><rect x="190" y="${Y(i)}" width="${W(p)}" height="36" fill="${c}"/><text x="${196 + W(p)}" y="${Y(i) + 24}" font-family="ui-monospace,monospace" font-size="12" fill="#0f1626">${p.toLocaleString()}</text>`);
+  $("plot").innerHTML = s;
+  $("out").textContent = rows.map(([l, p, st]) => `${l.padEnd(24)} path ${p.toLocaleString().padStart(6)}   sequential steps per layer ${st === 1 ? "1" : st.toLocaleString()}`).join("\n") + `\nattention scores per head per layer: n² = ${(n * n).toLocaleString()}`;
+}
+["n", "k"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

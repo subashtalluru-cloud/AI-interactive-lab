@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How a decision tree chooses its question — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:228">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 11, 17 · Lab L17.1</span></p>
+</div></header>
+<main>
+<h1>How a decision tree chooses its question</h1>
+<p class="lede">The ten eyes of Chapter 11: IOP and whether glaucoma progressed. A tree asks “is IOP ≤ t?” and picks the threshold that makes the two resulting groups as pure as possible, measured by Gini impurity.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="t">Threshold t (mmHg) <span class="val" id="tV"></span></label><input type="range" id="t" min="13" max="31" step="0.5" value="18.5"></div>
+    <div class="control"><label for="crit">Impurity measure</label><select id="crit"><option value="gini">Gini: 1 − Σ p²</option><option value="ent">Entropy: −Σ p log₂ p</option><option value="err">Error rate: 1 − max p</option></select></div>
+    <div class="control" style="align-self:end"><button id="best" class="ghost">Jump to the best split</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="line" viewBox="0 0 720 150" role="img" aria-labelledby="lT"><title id="lT">The ten eyes on an IOP axis with the threshold</title></svg>
+  <figcaption>Crimson: progressed (1). Cobalt: did not (0). The dashed line is the threshold; eyes to its left form the left group.</figcaption>
+</figure>
+<figure>
+  <svg id="gain" viewBox="0 0 720 220" role="img" aria-labelledby="gT"><title id="gT">Impurity reduction for every candidate threshold</title></svg>
+  <figcaption>Impurity reduction (gain) at every midpoint between neighbouring IOP values. The tree takes the highest bar.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">Split at 18.5: left {14, 16, 18} all non-progressors (Gini 0); right Gini 20/49 ≈ 0.408; weighted 0.286; gain 0.214. Split at 21.5: both sides 0.32, gain 0.18. Both splits make 2 errors, but Gini prefers the one that creates a pure group (Math Box 17.1). The split at 24.5 ties with 18.5 — it creates a pure group of three progressors — and the lab, like most tree software, keeps the first threshold it finds.</p>
+<p class="note">Switch the measure to “error rate”: 18.5 and 21.5 tie, because error rate cannot see purity. Gini and entropy can, which is why trees use them. Keep splitting and every eye ends up alone in a leaf — perfect on these ten, useless on the next ten. That memorization is why single trees are pruned and why forests average many (Chapter 17).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const IOP = [14, 16, 18, 19, 21, 22, 24, 25, 27, 30], Y = [0, 0, 0, 1, 0, 1, 0, 1, 1, 1];
+function imp(ys) {
+  if (!ys.length) return 0; const p = ys.filter(v => v).length / ys.length, c = $("crit").value;
+  if (c === "gini") return 1 - p * p - (1 - p) ** 2;
+  if (c === "ent") return [p, 1 - p].reduce((s, q) => s - (q > 0 ? q * Math.log2(q) : 0), 0);
+  return 1 - Math.max(p, 1 - p);
+}
+function split(t) {
+  const L = Y.filter((_, i) => IOP[i] <= t), R = Y.filter((_, i) => IOP[i] > t);
+  const w = (L.length * imp(L) + R.length * imp(R)) / 10;
+  const err = L.filter(v => v !== (L.filter(x => x).length > L.length / 2 ? 1 : 0)).length + R.filter(v => v !== (R.filter(x => x).length >= R.length / 2 ? 1 : 0)).length;
+  return { L, R, w, gain: imp(Y) - w, err };
+}
+const cands = IOP.slice(0, -1).map((v, i) => (v + IOP[i + 1]) / 2);
+function draw() {
+  const t = +$("t").value; $("tV").textContent = t.toFixed(1);
+  const S = split(t), X = v => 40 + (v - 12) / 20 * 640;
+  let s = `<title id="lT">Eyes</title><line x1="40" y1="80" x2="680" y2="80" stroke="#b8c0cf"/>`;
+  s += `<rect x="40" y="30" width="${X(t) - 40}" height="80" fill="#0e8f6e" fill-opacity="0.07"/><rect x="${X(t)}" y="30" width="${680 - X(t)}" height="80" fill="#e0930b" fill-opacity="0.07"/>`;
+  IOP.forEach((v, i) => { s += `<circle cx="${X(v)}" cy="80" r="11" fill="${Y[i] ? "#d6215a" : "#1b4de4"}"/><text x="${X(v)}" y="84" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="10" fill="#fff">${Y[i]}</text><text x="${X(v)}" y="128" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`; });
+  s += `<line x1="${X(t)}" y1="24" x2="${X(t)}" y2="112" stroke="#0f1626" stroke-width="2" stroke-dasharray="5 4"/>`;
+  $("line").innerHTML = s;
+  const gains = cands.map(c => split(c).gain), mg = Math.max(...gains, 1e-9);
+  let g = `<title id="gT">Gains</title><line x1="40" y1="190" x2="680" y2="190" stroke="#b8c0cf"/>`;
+  cands.forEach((c, i) => {
+    const h = gains[i] / Math.max(mg, 0.25) * 150, on = Math.abs(c - t) < 0.26;
+    g += `<rect x="${X(c) - 14}" y="${190 - h}" width="28" height="${h}" fill="${Math.abs(gains[i] - mg) < 1e-9 ? "#0e8f6e" : "#9aa3b5"}" stroke="${on ? "#0f1626" : "none"}" stroke-width="2"/>`;
+    g += `<text x="${X(c)}" y="${184 - h}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#0f1626">${gains[i].toFixed(3)}</text><text x="${X(c)}" y="206" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">${c}</text>`;
+  });
+  $("gain").innerHTML = g;
+  const name = { gini: "Gini", ent: "entropy", err: "error rate" }[$("crit").value];
+  $("out").textContent =
+    `parent ${name} = ${imp(Y).toFixed(3)}\n` +
+    `left (IOP ≤ ${t}): ${S.L.length} eyes, ${S.L.filter(v => v).length} progressed → ${name} ${imp(S.L).toFixed(3)}\n` +
+    `right (IOP > ${t}): ${S.R.length} eyes, ${S.R.filter(v => v).length} progressed → ${name} ${imp(S.R).toFixed(3)}\n` +
+    `weighted = ${S.w.toFixed(3)}   gain = ${S.gain.toFixed(3)}   errors if each side predicts its majority: ${S.err}`;
+}
+$("best").onclick = () => { const g = cands.map(c => split(c).gain); $("t").value = cands[g.indexOf(Math.max(...g))]; draw(); };
+$("t").addEventListener("input", draw); $("crit").addEventListener("change", draw);
+draw();
+</script>
+</main></body></html>

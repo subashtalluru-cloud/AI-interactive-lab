@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Distillation temperature — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:18">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 101 · Lab L101.1</span></p>
+</div></header>
+<main>
+<h1>Distillation: softening the teacher’s answer</h1>
+<p class="lede">A large teacher’s probabilities contain more than its top answer: how similar the wrong classes are. Raising the temperature T makes that similarity visible, so the student can learn from it.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="T">Temperature T <span class="val" id="TV"></span></label><input type="range" id="T" min="0.25" max="10" step="0.05" value="4"></div>
+<div class="control"><label for="z1">Teacher logit: moderate <span class="val" id="z1V"></span></label><input type="range" id="z1" min="-2" max="8" step="0.1" value="4"></div>
+<div class="control"><label for="z2">Teacher logit: mild <span class="val" id="z2V"></span></label><input type="range" id="z2" min="-2" max="8" step="0.1" value="2"></div>
+<div class="control"><label for="z3">Teacher logit: severe <span class="val" id="z3V"></span></label><input type="range" id="z3" min="-2" max="8" step="0.1" value="0.5"></div>
+<div class="control"><label for="s">Student’s current logits = teacher’s × <span class="val" id="sV"></span></label><input type="range" id="s" min="0" max="2" step="0.05" value="0.5"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Teacher distribution at T = 1 and at the chosen T, with the student</title></svg>
+<figcaption>Grey: teacher at T = 1 (hard-looking). Cobalt: teacher at T. Amber: student at T. The distillation loss is the KL divergence between cobalt and amber, times T².</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Logits (4, 2, 0.5): at T = 1 the teacher gives (0.858, 0.116, 0.026); at T = 4, (0.494, 0.300, 0.206). The ranking is unchanged, but “mild is more like moderate than severe is” now carries real weight (Math Box 101.1).</p>
+<p class="note">Very high T flattens everything toward uniform and the information fades again; practical values are about 2–10. The T² factor keeps the gradient size comparable across temperatures. The student is used at T = 1 afterwards (Chapter 101).</p>
+<script>
+const $ = id => document.getElementById(id);
+const sm = (z, T) => { const m = Math.max(...z), e = z.map(v => Math.exp((v - m) / T)), s = e.reduce((a, b) => a + b); return e.map(v => v / s); };
+function draw() {
+  const T = +$("T").value, z = [+$("z1").value, +$("z2").value, +$("z3").value], sc = +$("s").value;
+  $("TV").textContent = T.toFixed(2); ["z1", "z2", "z3"].forEach(i => $(i + "V").textContent = (+$(i).value).toFixed(1)); $("sV").textContent = sc.toFixed(2);
+  const p1 = sm(z, 1), pT = sm(z, T), q = sm(z.map(v => v * sc), T);
+  const kl = pT.reduce((a, p, i) => a + p * Math.log(p / q[i]), 0);
+  const H = p => -p.reduce((a, v) => a + (v > 0 ? v * Math.log(v) : 0), 0);
+  let s = `<title id="pT">Distributions</title><line x1="40" y1="220" x2="700" y2="220" stroke="#b8c0cf"/>`;
+  ["moderate", "mild", "severe"].forEach((n, i) => {
+    const x = 70 + i * 220;
+    [[p1, "#9aa3b5"], [pT, "#1b4de4"], [q, "#e0930b"]].forEach(([p, c], j) => { s += `<rect x="${x + j * 50}" y="${220 - p[i] * 190}" width="44" height="${p[i] * 190}" fill="${c}"/><text x="${x + j * 50 + 22}" y="${214 - p[i] * 190}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#0f1626">${p[i].toFixed(3)}</text>`; });
+    s += `<text x="${x + 72}" y="240" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${n}</text>`;
+  });
+  $("plot").innerHTML = s;
+  $("out").textContent =
+    `teacher T=1: (${p1.map(v => v.toFixed(3)).join(", ")})   entropy ${H(p1).toFixed(3)} nats\n` +
+    `teacher T=${T.toFixed(2)}: (${pT.map(v => v.toFixed(3)).join(", ")})   entropy ${H(pT).toFixed(3)} nats\n` +
+    `student T=${T.toFixed(2)}: (${q.map(v => v.toFixed(3)).join(", ")})\n` +
+    `KL(teacher_T ‖ student_T) = ${kl.toFixed(4)};  × T² = ${(kl * T * T).toFixed(4)}`;
+}
+["T", "z1", "z2", "z3", "s"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

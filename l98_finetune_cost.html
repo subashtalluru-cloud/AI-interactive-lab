@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What a fine-tuning job costs — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:350">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 84, 98–100 · Lab L98.1</span></p>
+</div></header>
+<main>
+<h1>What a fine-tuning job costs</h1>
+<p class="lede">Rough arithmetic before starting: how many tokens, how many steps, how many FLOPs and how much memory. For most clinical adaptation jobs, compute is small; memory is the binding constraint.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="n">Training examples <span class="val" id="nV"></span></label><input type="range" id="n" min="100" max="100000" step="100" value="2000"></div>
+    <div class="control"><label for="tin">Input tokens per example <span class="val" id="tinV"></span></label><input type="range" id="tin" min="50" max="4000" step="50" value="600"></div>
+    <div class="control"><label for="tout">Output tokens per example <span class="val" id="toutV"></span></label><input type="range" id="tout" min="10" max="2000" step="10" value="150"></div>
+    <div class="control"><label for="ep">Epochs <span class="val" id="epV"></span></label><input type="range" id="ep" min="1" max="10" step="1" value="3"></div>
+    <div class="control"><label for="P">Model size (billions) <span class="val" id="PV"></span></label><input type="range" id="P" min="1" max="70" step="1" value="7"></div>
+    <div class="control"><label for="bs">Batch size <span class="val" id="bsV"></span></label><input type="range" id="bs" min="1" max="128" step="1" value="16"></div>
+    <div class="control"><label for="mode">Method</label><select id="mode"><option value="full">Full fine-tuning</option><option value="lora">LoRA (base frozen, 16-bit)</option><option value="qlora">QLoRA (base in 4 bits)</option></select></div>
+  </div>
+</div>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s job — 2,000 examples of 600 + 150 tokens, 3 epochs, 7B model — is about 1.9 × 10¹⁷ FLOPs: roughly 25 minutes on one accelerator, and about one two-hundred-thousandth of pretraining. 375 optimizer steps.</p>
+<p class="note">Switch to full fine-tuning at 70B and memory, not time, becomes the problem: weights, gradients and optimizer states come to roughly 16 bytes per parameter. LoRA keeps gradients and optimizer states only for the adapter; QLoRA also stores the frozen base in 4 bits (Chapters 98–100). For LoRA the lab uses 4ND rather than 6ND, a rough allowance for skipping most weight-gradient work; real savings vary with implementation. The memory figures are rules of thumb that ignore activations, which depend on sequence length and batch size.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt = v => v >= 1e3 ? v.toExponential(1).replace("e+", " × 10^") : v.toFixed(1);
+function draw() {
+  const n = +$("n").value, tin = +$("tin").value, tout = +$("tout").value, ep = +$("ep").value, P = +$("P").value * 1e9, bs = +$("bs").value, mode = $("mode").value;
+  ["n", "tin", "tout", "ep", "P", "bs"].forEach(id => $(id + "V").textContent = (+$(id).value).toLocaleString());
+  const lossTok = n * tout, perEpoch = n * (tin + tout), D = perEpoch * ep;
+  const flops = (mode === "full" ? 6 : 4) * P * D; // LoRA skips most weight-gradient work: roughly forward + backward-through-activations
+  const secs = flops / 1.25e14, steps = Math.ceil(n / bs) * ep;
+  const adapter = 2 * 4096 * 8 * 4 * 32 * (P / 6.74e9);
+  const mem = mode === "full" ? P * 16 : mode === "lora" ? P * 2 + adapter * 16 : P * 0.5 + adapter * 16;
+  $("out").textContent =
+    `tokens contributing to the loss: ${n.toLocaleString()} × ${tout} = ${lossTok.toLocaleString()}\n` +
+    `tokens processed per epoch: ${n.toLocaleString()} × ${tin + tout} = ${perEpoch.toLocaleString()};  over ${ep} epochs D = ${D.toLocaleString()}\n` +
+    `compute ≈ ${mode === "full" ? 6 : 4} × N × D = ${mode === "full" ? 6 : 4} × ${(P / 1e9).toFixed(0)}e9 × ${D.toExponential(2)} = ${flops.toExponential(2)} FLOPs\n` +
+    `time at 1.25 × 10¹⁴ useful FLOP/s on one accelerator ≈ ${secs < 3600 ? (secs / 60).toFixed(0) + " minutes" : (secs / 3600).toFixed(1) + " hours"};  fraction of a 4 × 10²² pretraining run: 1 / ${Math.round(4e22 / flops).toLocaleString()}\n` +
+    `optimizer steps: ⌈${n.toLocaleString()} / ${bs}⌉ × ${ep} = ${steps.toLocaleString()}\n` +
+    `memory (rule of thumb, excluding activations): ≈ ${(mem / 1e9).toFixed(0)} GB` +
+    (mode === "full" ? "  (16 bytes per parameter: weights, gradients, two optimizer moments)" : mode === "lora" ? "  (frozen 16-bit base + small trainable adapter)" : "  (4-bit base + small trainable adapter)");
+}
+["n", "tin", "tout", "ep", "P", "bs"].forEach(id => $(id).addEventListener("input", draw));
+$("mode").addEventListener("change", draw);
+draw();
+</script>
+</main></body></html>

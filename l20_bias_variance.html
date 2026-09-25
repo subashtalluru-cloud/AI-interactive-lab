@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bias and variance — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:243">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 20 · Lab L20.1</span></p>
+</div></header>
+
+<main>
+<h1>Bias and variance, seen directly</h1>
+<p class="lede">Draw a small training set from a curved relationship with noise, fit a polynomial, and repeat twenty times. Simple models are consistently wrong; flexible ones are wrong differently every time.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="deg">Polynomial degree (model flexibility) <span class="val" id="degV"></span></label>
+      <input type="range" id="deg" min="0" max="9" step="1" value="1"></div>
+    <div class="control"><label for="n">Training points per sample <span class="val" id="nV"></span></label>
+      <input type="range" id="n" min="8" max="60" step="1" value="12"></div>
+    <div class="control"><label for="noise">Noise (irreducible) <span class="val" id="noiseV"></span></label>
+      <input type="range" id="noise" min="0.05" max="0.6" step="0.05" value="0.3"></div>
+    <div class="control"><label for="lam">Weight decay λ <span class="val" id="lamV"></span></label>
+      <input type="range" id="lam" min="0" max="3" step="0.25" value="0"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="fits" viewBox="0 0 720 320" role="img" aria-labelledby="fT">
+    <title id="fT">Twenty fitted curves from twenty training samples, with the true curve</title>
+  </svg>
+  <figcaption>Black: the true function. Light blue: twenty models, each fitted to a different random training sample. Violet: their average. Dots: one training sample.</figcaption>
+</figure>
+
+<figure>
+  <svg id="curve" viewBox="0 0 720 260" role="img" aria-labelledby="cT">
+    <title id="cT">Training error and test error against polynomial degree</title>
+  </svg>
+  <figcaption>Average training error (green) keeps falling as flexibility rises; test error (crimson) falls and then rises — the U-shape of Chapter 20. The dashed line is the irreducible noise.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">Degree 0–1: the twenty curves agree with each other but miss the truth — high bias. Degree 7–9 with 12 points: the curves swing wildly between samples — high variance. The best test error sits in between.</p>
+<p class="note">At degree 5 and above with only 12 points, the error numbers explode into the hundreds or thousands: between and beyond the training points the curves swing far from anything in the data. The error chart is capped so the low end stays readable. Training error, meanwhile, keeps falling — the clearest possible picture of why training error alone cannot tell you whether a model will generalize.</p>
+<p class="note">Raise the number of training points: variance shrinks and higher degrees become safe. Raise λ: the flexible models calm down. Both are Chapter 20 and 43's remedies — more data, or regularization. The noise floor never moves; no model can predict the noise.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const truth = x => Math.sin(2.6 * x) + 0.3 * x;
+let seed = 3;
+const rand = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+const gauss = () => Math.sqrt(-2 * Math.log(rand() + 1e-12)) * Math.cos(2 * Math.PI * rand());
+
+function solve(A, b) { // Gaussian elimination with partial pivoting
+  const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    [M[c], M[p]] = [M[p], M[c]];
+    const d = M[c][c] || 1e-12;
+    for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c] / d; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+  }
+  return M.map((r, i) => r[n] / (r[i] || 1e-12));
+}
+function fit(xs, ys, deg, lam) {
+  const k = deg + 1, A = Array.from({ length: k }, () => Array(k).fill(0)), b = Array(k).fill(0);
+  xs.forEach((x, i) => { const pw = Array.from({ length: k }, (_, j) => x ** j);
+    for (let r = 0; r < k; r++) { b[r] += pw[r] * ys[i]; for (let c = 0; c < k; c++) A[r][c] += pw[r] * pw[c]; } });
+  for (let r = 1; r < k; r++) A[r][r] += lam + 1e-9;
+  return solve(A, b);
+}
+const pred = (w, x) => w.reduce((s, c, j) => s + c * x ** j, 0);
+const sample = (n, sd) => { const xs = Array.from({ length: n }, () => rand() * 2 - 1); return [xs, xs.map(x => truth(x) + sd * gauss())]; };
+
+function experiment(deg, n, sd, lam, reps = 20) {
+  seed = 3;
+  const grid = Array.from({ length: 81 }, (_, i) => -1 + i / 40);
+  const models = [], train = [];
+  let firstSample;
+  for (let r = 0; r < reps; r++) {
+    const [xs, ys] = sample(n, sd); if (!r) firstSample = [xs, ys];
+    const w = fit(xs, ys, deg, lam); models.push(w);
+    train.push(xs.reduce((s, x, i) => s + (pred(w, x) - ys[i]) ** 2, 0) / n);
+  }
+  const preds = models.map(w => grid.map(x => pred(w, x)));
+  const mean = grid.map((_, g) => preds.reduce((s, p) => s + p[g], 0) / reps);
+  const bias2 = grid.reduce((s, x, g) => s + (mean[g] - truth(x)) ** 2, 0) / grid.length;
+  const vari = grid.reduce((s, _, g) => s + preds.reduce((a, p) => a + (p[g] - mean[g]) ** 2, 0) / reps, 0) / grid.length;
+  return { grid, preds, mean, bias2, vari, train: train.reduce((a, b) => a + b) / reps, test: bias2 + vari + sd * sd, firstSample };
+}
+
+function draw() {
+  const deg = +$("deg").value, n = +$("n").value, sd = +$("noise").value, lam = +$("lam").value;
+  $("degV").textContent = deg; $("nV").textContent = n; $("noiseV").textContent = sd.toFixed(2); $("lamV").textContent = lam.toFixed(2);
+  const E = experiment(deg, n, sd, lam);
+
+  const X = x => 40 + (x + 1) * 320, Y = y => 160 - y * 70;
+  let s = `<title id="fT">Fitted curves</title><defs><clipPath id="cp"><rect x="40" y="10" width="640" height="300"/></clipPath></defs>`;
+  s += `<rect x="40" y="10" width="640" height="300" fill="#f3f5f9" stroke="#d7dce6"/><g clip-path="url(#cp)">`;
+  E.preds.forEach(p => s += `<polyline fill="none" stroke="#1b4de4" stroke-opacity="0.28" stroke-width="1.5" points="${E.grid.map((x, i) => `${X(x)},${Y(p[i])}`).join(" ")}"/>`);
+  s += `<polyline fill="none" stroke="#0f1626" stroke-width="2.5" points="${E.grid.map(x => `${X(x)},${Y(truth(x))}`).join(" ")}"/>`;
+  s += `<polyline fill="none" stroke="#6c3fd1" stroke-width="2.5" stroke-dasharray="6 4" points="${E.grid.map((x, i) => `${X(x)},${Y(E.mean[i])}`).join(" ")}"/>`;
+  E.firstSample[0].forEach((x, i) => s += `<circle cx="${X(x)}" cy="${Y(E.firstSample[1][i])}" r="3.5" fill="#e0930b"/>`);
+  s += `</g>`;
+  $("fits").innerHTML = s;
+
+  // error curves across degrees
+  const rows = Array.from({ length: 10 }, (_, d) => experiment(d, n, sd, lam));
+  const maxE = Math.min(3, Math.max(...rows.map(r => r.test)) * 1.05);
+  const DX = d => 60 + d * 66, DY = v => 230 - Math.min(v, maxE) / maxE * 200;
+  let c = `<title id="cT">Error versus degree</title><rect x="40" y="20" width="640" height="215" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  c += `<line x1="40" y1="${DY(sd * sd)}" x2="680" y2="${DY(sd * sd)}" stroke="#4a5468" stroke-dasharray="4 4"/>`;
+  c += `<polyline fill="none" stroke="#0e8f6e" stroke-width="2.5" points="${rows.map((r, d) => `${DX(d)},${DY(r.train)}`).join(" ")}"/>`;
+  c += `<polyline fill="none" stroke="#d6215a" stroke-width="2.5" points="${rows.map((r, d) => `${DX(d)},${DY(r.test)}`).join(" ")}"/>`;
+  rows.forEach((r, d) => c += `<text x="${DX(d)}" y="252" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${d}</text>`);
+  c += `<circle cx="${DX(deg)}" cy="${DY(E.test)}" r="6" fill="#d6215a"/>`;
+  $("curve").innerHTML = c;
+
+  $("out").textContent =
+    `degree ${deg}:  bias² = ${E.bias2.toFixed(3)}   variance = ${E.vari.toFixed(3)}   noise = ${(sd * sd).toFixed(3)}\n` +
+    `expected test error ≈ bias² + variance + noise = ${E.test.toFixed(3)}     average training error = ${E.train.toFixed(3)}`;
+}
+
+["deg", "n", "noise", "lam"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main>
+</body>
+</html>

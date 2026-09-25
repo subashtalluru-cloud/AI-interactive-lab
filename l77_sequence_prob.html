@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scoring a sentence — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:265">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 33, 77, 83 · Lab L77.1</span></p>
+</div></header>
+<main>
+<h1>Scoring a sentence, one token at a time</h1>
+<p class="lede">A language model assigns a sentence a probability by multiplying the probability of each token given the ones before it. Logs turn the product into a sum; the average surprise per token becomes perplexity.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="p1">P(raised | start) <span class="val" id="p1V"></span></label><input type="range" id="p1" min="-5" max="0" step="0.05" value="-3"></div>
+<div class="control"><label for="p2">P(intraocular | raised) <span class="val" id="p2V"></span></label><input type="range" id="p2" min="-5" max="0" step="0.001" value="-1.699"></div>
+<div class="control"><label for="p3">P(pressure | raised intraocular) <span class="val" id="p3V"></span></label><input type="range" id="p3" min="-5" max="0" step="0.001" value="-0.046"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 200" role="img" aria-labelledby="pT"><title id="pT">Surprise contributed by each token</title></svg><figcaption>Bar length: each token’s surprise, −ln P (nats). The whole bar is the sentence’s total negative log-probability.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">0.001 × 0.02 × 0.9 = 0.000018; log-probability −6.91 − 3.91 − 0.105 = −10.92; average 3.64 nats per token; perplexity ≈ 38 (Math Box 77.1).</p>
+<p class="note">Nearly all the cost lies in the first two words, where many continuations were plausible; once “raised intraocular” is present, “pressure” is almost free. A good model is confident where language is predictable and appropriately uncertain where it is not — and pretraining minimizes exactly this sum over trillions of tokens (Chapters 33, 77, 83). Sliders are on a log₁₀ scale.</p>
+<script>
+const $ = id => document.getElementById(id);
+const W = ["raised", "intraocular", "pressure"], C = ["#1b4de4", "#e0930b", "#0e8f6e"];
+function draw() {
+  const p = [1, 2, 3].map(i => 10 ** +$("p" + i).value); p.forEach((v, i) => $("p" + (i + 1) + "V").textContent = v < 0.01 ? v.toExponential(1) : v.toFixed(3));
+  const s = p.map(v => -Math.log(v)), tot = s.reduce((a, b) => a + b), sc = 640 / Math.max(tot, 12);
+  let x = 40, g = `<title id="pT">Surprise</title>`;
+  s.forEach((v, i) => { g += `<rect x="${x}" y="60" width="${v * sc}" height="50" fill="${C[i]}"/>`; if (v * sc > 60) g += `<text x="${x + 6}" y="90" font-family="ui-sans-serif,system-ui" font-size="12" fill="#fff">${W[i]} ${v.toFixed(2)}</text>`; x += v * sc; });
+  $("plot").innerHTML = g;
+  $("out").textContent = `P(sentence) = ${p.map(v => v.toPrecision(3)).join(" × ")} = ${p.reduce((a, b) => a * b).toExponential(2)}\nlog-probability = ${s.map(v => (-v).toFixed(3)).join(" + ")} = ${(-tot).toFixed(2)}\naverage surprise ${(tot / 3).toFixed(2)} nats/token;  perplexity e^${(tot / 3).toFixed(2)} = ${Math.exp(tot / 3).toFixed(1)}`;
+}
+[1, 2, 3].forEach(i => $("p" + i).addEventListener("input", draw)); draw();
+</script></main></body></html>

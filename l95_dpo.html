@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DPO on one preference pair — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:7">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 94, 95 · Lab L95.1</span></p>
+</div></header>
+<main>
+<h1>DPO on one preference pair</h1>
+<p class="lede">Direct preference optimization skips the separate reward model. It compares how much the current model has raised the preferred answer, and lowered the dispreferred one, relative to a frozen reference — and pushes that margin up.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="pw">log π(preferred) <span class="val" id="pwV"></span></label><input type="range" id="pw" min="-20" max="-2" step="0.5" value="-10"></div>
+<div class="control"><label for="rw">log π_ref(preferred) <span class="val" id="rwV"></span></label><input type="range" id="rw" min="-20" max="-2" step="0.5" value="-12"></div>
+<div class="control"><label for="pl">log π(dispreferred) <span class="val" id="plV"></span></label><input type="range" id="pl" min="-20" max="-2" step="0.5" value="-11"></div>
+<div class="control"><label for="rl">log π_ref(dispreferred) <span class="val" id="rlV"></span></label><input type="range" id="rl" min="-20" max="-2" step="0.5" value="-10"></div>
+<div class="control"><label for="beta">β <span class="val" id="betaV"></span></label><input type="range" id="beta" min="0.01" max="1" step="0.01" value="0.1"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">DPO loss against the margin</title></svg>
+<figcaption>The DPO loss −ln σ(β × margin) against the margin. Dot: this pair. At margin 0 (model = reference) the loss is ln 2.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Log-ratios +2 (preferred) and −1 (dispreferred): margin 3, β × margin 0.3, implied preference σ(0.3) = 0.574, loss 0.554. At the start, 0.693; at margin 10, 0.313 (Math Box 95.1).</p>
+<p class="note">Only the <em>difference</em> of log-ratios matters, so DPO can reduce the loss by lowering the dispreferred answer’s probability rather than raising the preferred one — one reason DPO-trained models sometimes lose fluency. β plays the role of the KL leash in RLHF (Chapters 94–95).</p>
+<script>
+const $ = id => document.getElementById(id);
+const sig = z => 1 / (1 + Math.exp(-z));
+function draw() {
+  const [pw, rw, pl, rl, b] = ["pw", "rw", "pl", "rl", "beta"].map(k => +$(k).value);
+  ["pw", "rw", "pl", "rl"].forEach(k => $(k + "V").textContent = (+$(k).value).toFixed(1)); $("betaV").textContent = b.toFixed(2);
+  const lw = pw - rw, ll = pl - rl, m = lw - ll, L = -Math.log(sig(b * m));
+  const X = v => 60 + (v + 15) / 45 * 620, Y = v => 230 - Math.min(v, 3) / 3 * 200, ms = Array.from({ length: 301 }, (_, i) => -15 + i * 0.15);
+  let s = `<title id="pT">DPO loss</title><rect x="60" y="30" width="620" height="200" fill="#f3f5f9" stroke="#d7dce6"/><polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${ms.map(v => `${X(v)},${Y(-Math.log(sig(b * v)))}`).join(" ")}"/>`;
+  s += `<line x1="60" y1="${Y(Math.LN2)}" x2="680" y2="${Y(Math.LN2)}" stroke="#9aa3b5" stroke-dasharray="4 4"/><line x1="${X(0)}" y1="30" x2="${X(0)}" y2="230" stroke="#9aa3b5"/><circle cx="${X(Math.max(-15, Math.min(30, m)))}" cy="${Y(L)}" r="7" fill="#d6215a"/>`;
+  [-15, -5, 0, 5, 15, 30].forEach(v => s += `<text x="${X(v)}" y="248" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  $("plot").innerHTML = s;
+  $("out").textContent = `log-ratio preferred = ${pw} − (${rw}) = ${lw.toFixed(1)};  dispreferred = ${pl} − (${rl}) = ${ll.toFixed(1)}\nmargin = ${m.toFixed(1)};  β × margin = ${(b * m).toFixed(3)};  σ = ${sig(b * m).toFixed(3)};  loss = ${L.toFixed(3)}`;
+}
+["pw", "rw", "pl", "rl", "beta"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

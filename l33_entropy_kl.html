@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entropy, cross-entropy and KL divergence — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:257">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 28, 33 · Lab L33.2</span></p>
+</div></header>
+<main>
+<h1>Entropy, cross-entropy and KL divergence</h1>
+<p class="lede">The truth P and a model Q are distributions over three outcomes. Entropy is the unavoidable surprise of P itself; cross-entropy is the surprise you actually experience when you use Q; the gap between them — KL divergence — is the price of the model being wrong.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="p1">P: outcome A <span class="val" id="p1V"></span></label><input type="range" id="p1" min="0" max="1" step="0.01" value="0.5"></div>
+    <div class="control"><label for="p2">P: outcome B (C takes the rest) <span class="val" id="p2V"></span></label><input type="range" id="p2" min="0" max="1" step="0.01" value="0.5"></div>
+    <div class="control"><label for="q1">Q: outcome A <span class="val" id="q1V"></span></label><input type="range" id="q1" min="0.01" max="0.98" step="0.01" value="0.9"></div>
+    <div class="control"><label for="q2">Q: outcome B (C takes the rest) <span class="val" id="q2V"></span></label><input type="range" id="q2" min="0.01" max="0.98" step="0.01" value="0.1"></div>
+    <div class="control"><label for="base">Units</label><select id="base"><option value="e">nats (natural log)</option><option value="2">bits (log₂)</option></select></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">P and Q side by side, and the three quantities as bars</title></svg>
+  <figcaption>Left: P (grey) and Q (cobalt) for each outcome. Right: entropy H(P), cross-entropy H(P, Q) and the KL divergence that makes up the difference. Also shown: KL in the reverse direction, which is generally different.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s case: P = (0.5, 0.5), Q = (0.9, 0.1): H(P) = 0.693, H(P, Q) = 1.204, KL = 0.511 nats (Math Box 33.1).</p>
+<p class="note">Make P one-hot (all on A): H(P) becomes 0 and cross-entropy is just −ln Q(A) — the training loss of Chapters 16 and 28. Push Q toward zero on an outcome P says can happen, and KL shoots up: confident dismissal of something real is punished hardest. Swap the direction and KL(Q‖P) gives a different number — which direction a method uses (RLHF, VAEs, distillation) shapes what the model is pushed to do (Chapters 94, 101, 110).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function norm3(a, b) { a = Math.max(0, Math.min(1, a)); b = Math.max(0, Math.min(1 - a, b)); return [a, b, Math.max(0, 1 - a - b)]; }
+function draw() {
+  const P = norm3(+$("p1").value, +$("p2").value), Q = norm3(+$("q1").value, +$("q2").value).map(v => Math.max(v, 1e-6));
+  const lg = $("base").value === "2" ? Math.log2 : Math.log, u = $("base").value === "2" ? "bits" : "nats";
+  ["p1", "p2", "q1", "q2"].forEach(id => $(id + "V").textContent = (+$(id).value).toFixed(2));
+  const H = -P.reduce((s, p) => s + (p > 0 ? p * lg(p) : 0), 0), CE = -P.reduce((s, p, i) => s + (p > 0 ? p * lg(Q[i]) : 0), 0), KL = CE - H;
+  const KLr = Q.reduce((s, q, i) => s + q * lg(q / Math.max(P[i], 1e-9)), 0);
+  let s = `<title id="pT">P and Q</title>`;
+  ["A", "B", "C"].forEach((n, i) => {
+    const x = 40 + i * 100;
+    s += `<rect x="${x}" y="${220 - P[i] * 190}" width="36" height="${P[i] * 190}" fill="#9aa3b5"/><rect x="${x + 40}" y="${220 - Q[i] * 190}" width="36" height="${Q[i] * 190}" fill="#1b4de4"/>`;
+    s += `<text x="${x + 38}" y="240" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${n}</text>`;
+  });
+  const mx = Math.max(3, CE, KLr) , B = v => Math.min(v, mx) / mx * 190;
+  [[H, "H(P)", "#9aa3b5"], [CE, "H(P,Q)", "#1b4de4"], [KL, "KL(P‖Q)", "#d6215a"], [KLr, "KL(Q‖P)", "#6c3fd1"]].forEach(([v, l, c], i) => {
+    const x = 380 + i * 82;
+    s += `<rect x="${x}" y="${220 - B(v)}" width="56" height="${B(v)}" fill="${c}" fill-opacity="0.85"/>`;
+    s += `<text x="${x + 28}" y="${214 - B(v)}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#0f1626">${isFinite(v) ? v.toFixed(3) : "∞"}</text>`;
+    s += `<text x="${x + 28}" y="240" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#0f1626">${l}</text>`;
+  });
+  $("plot").innerHTML = s;
+  $("out").textContent =
+    `P = (${P.map(v => v.toFixed(2)).join(", ")})   Q = (${Q.map(v => v.toFixed(2)).join(", ")})\n` +
+    `H(P) = −Σ p log p = ${H.toFixed(3)} ${u}\n` +
+    `H(P, Q) = −Σ p log q = ${CE.toFixed(3)} ${u}\n` +
+    `KL(P‖Q) = H(P,Q) − H(P) = ${KL.toFixed(3)} ${u}     KL(Q‖P) = ${KLr.toFixed(3)} ${u}   (not symmetric)`;
+}
+["p1", "p2", "q1", "q2"].forEach(id => $(id).addEventListener("input", draw));
+$("base").addEventListener("change", draw);
+draw();
+</script>
+</main></body></html>

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading a scaling law — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:348">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 83, 85 · Lab L85.1</span></p>
+</div></header>
+<main>
+<h1>Reading a scaling law</h1>
+<p class="lede">Loss falls as a power of model size: L = E + A / N^α. On log–log axes the reducible part is a straight line. Fit it on small models, extrapolate to a large one — and see how uncertainty and the loss floor shape the prediction.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="alpha">Exponent α <span class="val" id="alphaV"></span></label><input type="range" id="alpha" min="0.02" max="0.3" step="0.002" value="0.076"></div>
+    <div class="control"><label for="E">Loss floor E <span class="val" id="EV"></span></label><input type="range" id="E" min="0" max="2" step="0.05" value="0"></div>
+    <div class="control"><label for="noise">Noise in small-model losses <span class="val" id="noiseV"></span></label><input type="range" id="noise" min="0" max="0.05" step="0.005" value="0.01"></div>
+    <div class="control"><label for="top">Largest size in the fit <span class="val" id="topV"></span></label><input type="range" id="top" min="7" max="10" step="1" value="9"></div>
+    <div class="control" style="align-self:end"><button id="redraw">New noisy runs</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 320" role="img" aria-labelledby="pT"><title id="pT">Loss against parameters on log axes, with a fitted line and its extrapolation</title></svg>
+  <figcaption>Dots: “measured” losses of small models (true curve plus noise). Cobalt: power law fitted to the dots and extrapolated; the band is the spread of fits over 200 noisy repeats. Grey: the true curve. The target is a 10¹² model. Both axes are logarithmic; the constant A = 8 is illustrative.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">With α = 0.076, every tenfold increase in parameters multiplies loss by 10^−0.076 ≈ 0.84 — the same 16% whether going from 1 to 10 billion or from 100 billion to 1 trillion, at a hundred times the cost.</p>
+<p class="note">Add a loss floor E and fit a pure power law anyway: the line keeps falling while the true curve flattens, so the extrapolation is too optimistic — and the uncertainty band, which only reflects noise in the measurements, confidently excludes the true value. Error bars cannot warn you that the model’s form is wrong. Fit only up to 10⁷ and the band at 10¹² widens. Scaling laws were valuable because they were smooth enough to predict expensive runs from cheap ones — within the range where the form still holds (Chapter 85).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const gauss = () => Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
+const A = 8;
+let noiseDraws = null;
+function newNoise() { noiseDraws = Array.from({ length: 201 }, () => Array.from({ length: 13 }, gauss)); }
+function fit(xs, ys) { const n = xs.length, mx = xs.reduce((a, b) => a + b) / n, my = ys.reduce((a, b) => a + b) / n;
+  const b = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0) / xs.reduce((s, x) => s + (x - mx) ** 2, 0); return [my - b * mx, b]; }
+function draw() {
+  const al = +$("alpha").value, E = +$("E").value, sd = +$("noise").value, top = +$("top").value;
+  $("alphaV").textContent = al.toFixed(3); $("EV").textContent = E.toFixed(2); $("noiseV").textContent = sd.toFixed(3); $("topV").textContent = "10^" + top;
+  if (!noiseDraws) newNoise();
+  const truth = lg => E + A * 10 ** (-al * lg);
+  const pts = []; for (let lg = 6; lg <= top + 1e-9; lg += 0.5) pts.push(lg);
+  const fits = noiseDraws.map(nz => { const ys = pts.map((lg, i) => Math.log10(truth(lg) * (1 + sd * nz[i]))); return fit(pts, ys); });
+  const pred12 = fits.map(([a, b]) => 10 ** (a + b * 12)).sort((x, y) => x - y);
+  const main = fits[0], obs = pts.map((lg, i) => truth(lg) * (1 + sd * noiseDraws[0][i]));
+  const lo = Math.log10(Math.max(0.3, Math.min(truth(13), pred12[5]) * 0.8)), hi = Math.log10(truth(6) * 1.2);
+  const X = lg => 60 + (lg - 6) / 7 * 620, Y = v => 290 - (Math.log10(v) - lo) / (hi - lo) * 260;
+  let s = `<title id="pT">Scaling</title><rect x="60" y="30" width="620" height="260" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  s += `<rect x="${X(6)}" y="30" width="${X(top) - X(6)}" height="260" fill="#0e8f6e" fill-opacity="0.06"/>`;
+  for (let lg = 6; lg <= 13; lg++) s += `<text x="${X(lg)}" y="306" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">10^${lg}</text>`;
+  const band = [], lgs = Array.from({ length: 71 }, (_, i) => 6 + i / 10);
+  const q = (lg, f) => { const v = fits.map(([a, b]) => 10 ** (a + b * lg)).sort((x, y) => x - y); return v[Math.floor(f * 200)]; };
+  s += `<path d="M ${lgs.map(lg => `${X(lg)} ${Y(q(lg, .05))}`).join(" L ")} L ${lgs.slice().reverse().map(lg => `${X(lg)} ${Y(q(lg, .95))}`).join(" L ")} Z" fill="#1b4de4" fill-opacity="0.15"/>`;
+  s += `<polyline fill="none" stroke="#6b7488" stroke-width="2.5" points="${lgs.map(lg => `${X(lg)},${Y(truth(lg))}`).join(" ")}"/>`;
+  s += `<polyline fill="none" stroke="#1b4de4" stroke-width="2.5" stroke-dasharray="6 4" points="${lgs.map(lg => `${X(lg)},${Y(10 ** (main[0] + main[1] * lg))}`).join(" ")}"/>`;
+  pts.forEach((lg, i) => s += `<circle cx="${X(lg)}" cy="${Y(obs[i])}" r="4.5" fill="#e0930b"/>`);
+  s += `<line x1="${X(12)}" y1="30" x2="${X(12)}" y2="290" stroke="#d6215a" stroke-dasharray="3 4"/><text x="${X(12) - 4}" y="44" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#d6215a">target 10¹²</text>`;
+  s += `<text x="${X(6) + 6}" y="44" font-family="ui-sans-serif,system-ui" font-size="11" fill="#0e8f6e">fitted range</text>`;
+  $("plot").innerHTML = s;
+  $("out").textContent =
+    `per tenfold: loss × 10^(−${al.toFixed(3)}) = ${(10 ** -al).toFixed(3)}   per hundredfold: × ${(10 ** (-2 * al)).toFixed(3)}\n` +
+    `fitted exponent (one run): ${(-main[1]).toFixed(3)}\n` +
+    `loss at 10¹²: true ${truth(12).toFixed(3)};  predicted ${pred12[100].toFixed(3)} (90% of fits between ${pred12[10].toFixed(3)} and ${pred12[190].toFixed(3)})`;
+}
+$("redraw").onclick = () => { newNoise(); draw(); };
+["alpha", "E", "noise", "top"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

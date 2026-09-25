@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q-learning on the corridor — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  table{border-collapse:collapse;font-family:var(--sans);font-size:.92rem;margin:.5rem 0}
+  td,th{border:1px solid var(--rule);padding:.35rem .7rem;text-align:center}
+  td.flash{background:#fff4dd}
+</style>
+</head>
+<body style="--hue:307">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 58–63 · Lab L63.1</span></p>
+</div></header>
+
+<main>
+<h1>Q-learning on the corridor</h1>
+<p class="lede">Three states and a goal. Right from S2 reaches the goal with reward 1; everything else gives 0; γ = 0.9. The agent knows nothing about the corridor — it learns only from the steps it actually takes.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="mode">How the agent moves</label>
+      <select id="mode"><option value="right">Always Right (as in Math Box 63.1)</option><option value="eps">ε-greedy exploration</option></select></div>
+    <div class="control"><label for="alpha">Learning rate α <span class="val" id="alphaV"></span></label>
+      <input type="range" id="alpha" min="0.1" max="1" step="0.05" value="0.5"></div>
+    <div class="control"><label for="eps">Exploration ε <span class="val" id="epsV"></span></label>
+      <input type="range" id="eps" min="0" max="1" step="0.05" value="0.3"></div>
+    <div class="control" style="display:flex;gap:.5rem;align-items:end;flex-wrap:wrap">
+      <button id="ep">Run 1 episode</button><button id="ep20" class="ghost">Run 20</button><button id="reset" class="ghost">Reset</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="world" viewBox="0 0 720 190" role="img" aria-labelledby="wT"><title id="wT">The corridor with learned values</title></svg>
+  <figcaption>Each state shows its best learned value, max Q. The arrow is the greedy action. The last episode’s path is traced in amber.</figcaption>
+</figure>
+
+<table id="q"></table>
+<p class="readout" id="log"></p>
+
+<h2>What to notice</h2>
+<p class="finding">In “always Right” mode, the first four episodes reproduce the book: Q(S2,R) = 0.5, 0.75, 0.875, 0.938; Q(S1,R) = 0, 0.225, 0.45, 0.619; Q(S0,R) = 0, 0, 0.101, 0.253. Value arrives at the goal first and flows backwards one state per episode.</p>
+<p class="note">Keep running and the values settle at 0.81, 0.9 and 1 — the Q* of Chapter 60 — with no knowledge of the transition rules. In ε-greedy mode the agent also learns what Left is worth (γ × the value of the state it lands in), which the always-Right agent never discovers. With ε = 0 from the start it may never find the goal at all: exploration is what lets it learn.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const G = 0.9;
+let Q, ep, lastPath, lastLog;
+const next = (s, a) => a === 1 ? s + 1 : Math.max(0, s - 1); // 3 = goal
+function reset() { Q = [[0, 0], [0, 0], [0, 0]]; ep = 0; lastPath = []; lastLog = "No episodes yet."; draw(); }
+function episode() {
+  const alpha = +$("alpha").value, eps = +$("eps").value, mode = $("mode").value;
+  let s = 0, steps = 0; const path = [0], lines = [];
+  while (s < 3 && steps < 50) {
+    let a;
+    if (mode === "right") a = 1;
+    else if (Math.random() < eps) a = Math.random() < 0.5 ? 0 : 1;
+    else a = Q[s][1] > Q[s][0] ? 1 : Q[s][0] > Q[s][1] ? 0 : (Math.random() < 0.5 ? 0 : 1);
+    const s2 = next(s, a), r = s2 === 3 ? 1 : 0;
+    const target = r + (s2 === 3 ? 0 : G * Math.max(...Q[s2]));
+    const old = Q[s][a];
+    Q[s][a] = old + alpha * (target - old);
+    lines.push(`Q(S${s},${a ? "R" : "L"}): target ${target.toFixed(3)} → ${old.toFixed(3)} + ${alpha} × (${target.toFixed(3)} − ${old.toFixed(3)}) = ${Q[s][a].toFixed(3)}`);
+    s = s2; path.push(s); steps++;
+  }
+  ep++; lastPath = path; lastLog = `Episode ${ep} (${steps} steps):\n` + lines.slice(-8).join("\n");
+}
+function draw() {
+  $("alphaV").textContent = (+$("alpha").value).toFixed(2); $("epsV").textContent = (+$("eps").value).toFixed(2);
+  $("eps").disabled = $("mode").value === "right";
+  const X = i => 90 + i * 180;
+  let s = `<title id="wT">Corridor</title>`;
+  for (let i = 0; i < 4; i++) {
+    const v = i < 3 ? Math.max(...Q[i]) : null;
+    s += `<rect x="${X(i) - 70}" y="40" width="140" height="100" rx="12" fill="${i === 3 ? "#0e8f6e" : `rgba(27,77,228,${0.08 + 0.7 * v})`}" stroke="#d7dce6"/>`;
+    s += `<text x="${X(i)}" y="72" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="15" font-weight="700" fill="${i === 3 || v > .55 ? "#fff" : "#0f1626"}">${i === 3 ? "GOAL +1" : "S" + i}</text>`;
+    if (i < 3) {
+      s += `<text x="${X(i)}" y="100" text-anchor="middle" font-family="ui-monospace,monospace" font-size="15" fill="${v > .55 ? "#fff" : "#0f1626"}">${v.toFixed(3)}</text>`;
+      const best = Q[i][1] > Q[i][0] ? 1 : Q[i][0] > Q[i][1] ? 0 : -1;
+      if (best >= 0) s += `<text x="${X(i)}" y="128" text-anchor="middle" font-size="20" fill="${v > .55 ? "#fff" : "#1b4de4"}">${best ? "→" : "←"}</text>`;
+    }
+  }
+  if (lastPath.length > 1) {
+    s += `<polyline fill="none" stroke="#e0930b" stroke-width="3" stroke-opacity="0.8" points="${lastPath.map((p, k) => `${X(p) + (k % 2 ? 8 : -8)},${160 + (k % 5) * 5}`).join(" ")}"/>`;
+  }
+  $("world").innerHTML = s;
+  $("q").innerHTML = `<tr><th></th><th>S0</th><th>S1</th><th>S2</th></tr>` +
+    [["Left", 0], ["Right", 1]].map(([n, a]) => `<tr><th>Q(·, ${n})</th>${Q.map(r => `<td>${r[a].toFixed(3)}</td>`).join("")}</tr>`).join("") +
+    `<tr><th>true Q*</th><td>L .729 / R .810</td><td>L .729 / R .900</td><td>L .810 / R 1</td></tr>`;
+  $("log").textContent = lastLog;
+}
+$("ep").onclick = () => { episode(); draw(); };
+$("ep20").onclick = () => { for (let i = 0; i < 20; i++) episode(); draw(); };
+$("reset").onclick = reset;
+["alpha", "eps"].forEach(id => $(id).addEventListener("input", draw));
+$("mode").addEventListener("change", reset);
+reset();
+</script>
+</main>
+</body>
+</html>

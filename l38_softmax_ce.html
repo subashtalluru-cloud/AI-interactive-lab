@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Softmax cross-entropy for one example — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:273">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 38, 82, 78 · Lab L38.1</span></p>
+</div></header>
+<main>
+<h1>Softmax cross-entropy for one example</h1>
+<p class="lede">A classifier’s raw scores become probabilities through softmax; the loss is −ln of the probability given to the true class; the gradient on each score is simply probability minus target.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="z0">Logit: no DR <span class="val" id="z0V"></span></label><input type="range" id="z0" min="-4" max="6" step="0.1" value="2.0"></div>
+<div class="control"><label for="z1">Logit: mild <span class="val" id="z1V"></span></label><input type="range" id="z1" min="-4" max="6" step="0.1" value="1.0"></div>
+<div class="control"><label for="z2">Logit: severe <span class="val" id="z2V"></span></label><input type="range" id="z2" min="-4" max="6" step="0.1" value="0.1"></div>
+<div class="control"><label for="c">True grade</label><select id="c"><option value="0">no DR</option><option value="1">mild</option><option value="2" selected>severe</option></select></div>
+<div class="control" style="align-self:end"><button id="step">Gradient step (η = 1)</button></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Probabilities and gradients per class</title></svg>
+<figcaption>Bars: probabilities. Arrows: the gradient p − y on each logit; a step moves each logit against its arrow.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Logits (2.0, 1.0, 0.1) → (0.659, 0.242, 0.099). True “no DR”: loss 0.417. True “severe”: loss 2.32 — a confident mistake — with gradient (0.659, 0.242, −0.901) (Math Box 38.1).</p>
+<p class="note">Add the same number to every logit: nothing changes, because softmax only sees differences. A language model does exactly this at every position, over a vocabulary of about a hundred thousand tokens (Chapters 38, 82–83).</p>
+<script>
+const $ = id => document.getElementById(id);
+const N = ["no DR", "mild", "severe"], C = ["#1b4de4", "#e0930b", "#d6215a"];
+function draw() {
+  const z = [0, 1, 2].map(i => +$("z" + i).value), c = +$("c").value;
+  z.forEach((v, i) => $("z" + i + "V").textContent = v.toFixed(1));
+  const m = Math.max(...z), e = z.map(v => Math.exp(v - m)), s = e.reduce((a, b) => a + b), p = e.map(v => v / s), g = p.map((v, i) => v - (i === c));
+  let svg = `<title id="pT">Softmax</title><line x1="40" y1="200" x2="700" y2="200" stroke="#b8c0cf"/>`;
+  p.forEach((v, i) => { const x = 90 + i * 210;
+    svg += `<rect x="${x}" y="${200 - v * 170}" width="80" height="${v * 170}" fill="${C[i]}" fill-opacity="${i === c ? 1 : .55}" stroke="${i === c ? "#0f1626" : "none"}" stroke-width="2"/>`;
+    svg += `<text x="${x + 40}" y="${194 - v * 170}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" fill="#0f1626">${v.toFixed(3)}</text>`;
+    svg += `<line x1="${x + 110}" y1="110" x2="${x + 110}" y2="${110 - g[i] * 80}" stroke="#0f1626" stroke-width="3" marker-end="url(#ah)"/><text x="${x + 120}" y="${114 - g[i] * 40}" font-family="ui-monospace,monospace" font-size="11" fill="#0f1626">${g[i] >= 0 ? "+" : ""}${g[i].toFixed(3)}</text>`;
+    svg += `<text x="${x + 40}" y="222" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${N[i]}${i === c ? " (true)" : ""}</text>`; });
+  $("plot").innerHTML = `<defs><marker id="ah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0f1626"/></marker></defs>` + svg;
+  $("out").textContent = `exp: (${z.map(v => Math.exp(v).toFixed(3)).join(", ")})  sum ${z.reduce((a, v) => a + Math.exp(v), 0).toFixed(3)}\np = (${p.map(v => v.toFixed(3)).join(", ")})\nloss −ln p(${N[c]}) = ${(-Math.log(p[c])).toFixed(3)}   gradient p − y = (${g.map(v => v.toFixed(3)).join(", ")})`;
+}
+$("step").onclick = () => { const z = [0, 1, 2].map(i => +$("z" + i).value), c = +$("c").value, m = Math.max(...z), e = z.map(v => Math.exp(v - m)), s = e.reduce((a, b) => a + b); z.forEach((v, i) => $("z" + i).value = (v - (e[i] / s - (i === c))).toFixed(2)); draw(); };
+["z0", "z1", "z2"].forEach(i => $(i).addEventListener("input", draw)); $("c").addEventListener("change", draw); draw();
+</script></main></body></html>

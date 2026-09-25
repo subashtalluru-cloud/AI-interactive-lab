@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routing one token through a mixture of experts — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:22">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 103, 168 · Lab L103.1</span></p>
+</div></header>
+<main>
+<h1>Routing one token through a mixture of experts</h1>
+<p class="lede">A router scores every expert for this token; only the top few run, and their outputs are blended by renormalized router weights. All experts’ parameters exist; only a few do work per token.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="l0">Router score, expert 1 <span class="val" id="l0V"></span></label><input type="range" id="l0" min="-3" max="3" step="0.1" value="1.2"></div>
+    <div class="control"><label for="l1">Router score, expert 2 <span class="val" id="l1V"></span></label><input type="range" id="l1" min="-3" max="3" step="0.1" value="0.3"></div>
+    <div class="control"><label for="l2">Router score, expert 3 <span class="val" id="l2V"></span></label><input type="range" id="l2" min="-3" max="3" step="0.1" value="2.0"></div>
+    <div class="control"><label for="l3">Router score, expert 4 <span class="val" id="l3V"></span></label><input type="range" id="l3" min="-3" max="3" step="0.1" value="-0.5"></div>
+    <div class="control"><label for="k">Experts used per token (top-k) <span class="val" id="kV"></span></label><input type="range" id="k" min="1" max="4" step="1" value="2"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="route" viewBox="0 0 720 260" role="img" aria-labelledby="rT"><title id="rT">The token, the router and four experts</title></svg>
+  <figcaption>Bar height: softmax probability. Solid experts run for this token, with their renormalized weight; faded experts do no computation.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>Scale it up</h2>
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="E">Experts per layer <span class="val" id="EV"></span></label><input type="range" id="E" min="1" max="128" step="1" value="8"></div>
+    <div class="control"><label for="K">Active experts per token <span class="val" id="KV"></span></label><input type="range" id="K" min="1" max="8" step="1" value="2"></div>
+    <div class="control"><label for="ex">Parameters per expert (all layers, billions) <span class="val" id="exV"></span></label><input type="range" id="ex" min="0.5" max="30" step="0.1" value="5.7"></div>
+    <div class="control"><label for="sh">Shared parameters: attention, embeddings (billions) <span class="val" id="shV"></span></label><input type="range" id="sh" min="0.5" max="30" step="0.1" value="1.6"></div>
+  </div>
+</div>
+<p class="readout" id="scale"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s token: scores (1.2, 0.3, 2.0, −0.5) → probabilities (0.262, 0.107, 0.583, 0.048) → experts 3 and 1 with weights 0.69 and 0.31. With Mixtral-like settings, about 47B parameters are stored but about 13B are active per token.</p>
+<p class="note">Compute follows the active count; memory follows the total. An MoE is cheaper to run than a dense model of the same size but not smaller to hold (Chapter 103). Routers must also be trained to spread tokens across experts — otherwise a few popular experts do all the work and the rest waste memory.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const COL = ["#1b4de4", "#0e8f6e", "#e0930b", "#6c3fd1"];
+function draw() {
+  const z = [0, 1, 2, 3].map(i => +$("l" + i).value), k = +$("k").value;
+  z.forEach((v, i) => $("l" + i + "V").textContent = v.toFixed(1)); $("kV").textContent = k;
+  const m = Math.max(...z), e = z.map(v => Math.exp(v - m)), s = e.reduce((a, b) => a + b), p = e.map(v => v / s);
+  const order = [0, 1, 2, 3].sort((a, b) => p[b] - p[a]), sel = new Set(order.slice(0, k)), ps = order.slice(0, k).reduce((a, i) => a + p[i], 0);
+  let g = `<title id="rT">Routing</title><rect x="20" y="105" width="90" height="46" rx="8" fill="#0f1626"/><text x="65" y="133" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="13" fill="#fff">token x</text>`;
+  g += `<rect x="150" y="105" width="90" height="46" rx="8" fill="#e3e7ef" stroke="#9aa3b5"/><text x="195" y="133" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="13" fill="#0f1626">router</text>`;
+  g += `<line x1="110" y1="128" x2="150" y2="128" stroke="#0f1626" stroke-width="2"/>`;
+  p.forEach((v, i) => {
+    const x = 300 + i * 100, on = sel.has(i), w = on ? p[i] / ps : 0;
+    g += `<line x1="240" y1="128" x2="${x + 35}" y2="200" stroke="${COL[i]}" stroke-width="${on ? 3 : 1}" stroke-opacity="${on ? 1 : .25}"/>`;
+    g += `<rect x="${x + 15}" y="${160 - v * 140}" width="40" height="${v * 140}" fill="${COL[i]}" fill-opacity="${on ? .9 : .2}"/>`;
+    g += `<text x="${x + 35}" y="${152 - v * 140}" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#0f1626">${v.toFixed(3)}</text>`;
+    g += `<rect x="${x}" y="200" width="70" height="40" rx="8" fill="${on ? COL[i] : "#f3f5f9"}" stroke="${COL[i]}" stroke-opacity="${on ? 1 : .35}"/>`;
+    g += `<text x="${x + 35}" y="218" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="${on ? "#fff" : "#9aa3b5"}">expert ${i + 1}</text>`;
+    g += `<text x="${x + 35}" y="233" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="${on ? "#fff" : "#9aa3b5"}">${on ? "× " + w.toFixed(2) : "idle"}</text>`;
+  });
+  $("route").innerHTML = g;
+  $("out").textContent =
+    `softmax(${z.map(v => v.toFixed(1)).join(", ")}) = (${p.map(v => v.toFixed(3)).join(", ")})\n` +
+    `top-${k}: ${order.slice(0, k).map(i => "expert " + (i + 1)).join(", ")}; renormalized weights ${order.slice(0, k).map(i => (p[i] / ps).toFixed(2)).join(" and ")}\n` +
+    `output = ${order.slice(0, k).map(i => `${(p[i] / ps).toFixed(2)} × Expert${i + 1}(x)`).join(" + ")}     FFN compute: ${k} of 4 experts`;
+  const E = +$("E").value, K = Math.min(+$("K").value, E), ex = +$("ex").value, sh = +$("sh").value;
+  $("EV").textContent = E; $("KV").textContent = K; $("exV").textContent = ex.toFixed(1); $("shV").textContent = sh.toFixed(1);
+  const tot = sh + E * ex, act = sh + K * ex;
+  $("scale").textContent =
+    `total = ${sh.toFixed(1)} + ${E} × ${ex.toFixed(2)} = ${tot.toFixed(1)} B parameters → memory ≈ ${(tot * 2).toFixed(0)} GB at 16 bits\n` +
+    `active per token = ${sh.toFixed(1)} + ${K} × ${ex.toFixed(2)} = ${act.toFixed(1)} B → compute ≈ 2 × ${act.toFixed(1)}e9 = ${(2 * act).toFixed(0)} GFLOPs per token\n` +
+    `active share: ${(act / tot * 100).toFixed(0)}%`;
+}
+["l0", "l1", "l2", "l3", "k", "E", "K", "ex", "sh"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

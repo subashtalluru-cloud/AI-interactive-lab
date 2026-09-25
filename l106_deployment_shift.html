@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The same model, a different clinic — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:253">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 26, 106 · Lab L106.1</span></p>
+</div></header>
+<main>
+<h1>The same model, a different clinic</h1>
+<p class="lede">A referral classifier validated on an enriched test set is deployed in community screening, and later a new camera arrives. The model has not changed; what a positive result means has.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="prev">Prevalence of referable disease <span class="val" id="prevV"></span></label><input type="range" id="prev" min="0.005" max="0.5" step="0.005" value="0.2"></div>
+    <div class="control"><label for="sens">Sensitivity <span class="val" id="sensV"></span></label><input type="range" id="sens" min="0.5" max="1" step="0.01" value="0.92"></div>
+    <div class="control"><label for="spec">Specificity <span class="val" id="specV"></span></label><input type="range" id="spec" min="0.5" max="1" step="0.005" value="0.90"></div>
+    <div class="control" style="display:flex;gap:.5rem;align-items:end;flex-wrap:wrap">
+      <button class="ghost" data-s="0.2,0.92,0.90">Development</button><button class="ghost" data-s="0.05,0.92,0.90">Screening</button><button class="ghost" data-s="0.05,0.80,0.85">+ new camera</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="grid" viewBox="0 0 720 300" role="img" aria-labelledby="gT"><title id="gT">One thousand patients and where the referrals go</title></svg>
+  <figcaption>1,000 patients. Filled squares have referable disease. Cobalt: correctly referred. Crimson outline: missed disease. Amber: referred without disease (false positive). Grey: correctly not referred.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">Development: PPV 0.70. Screening at 5% prevalence: 0.33 — two in three referrals are false alarms. With the new camera: 0.22, and one true case in five is missed (Math Box 106.1).</p>
+<p class="note">Nothing in the model’s code changed between these three panels. That is why the development pipeline (Chapter 106) insists on defining the intended population, evaluating externally, stress-testing under shift and monitoring after deployment: each catches a different step of this slide.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const p = +$("prev").value, se = +$("sens").value, sp = +$("spec").value;
+  $("prevV").textContent = (p * 100).toFixed(1) + "%"; $("sensV").textContent = se.toFixed(2); $("specV").textContent = sp.toFixed(3);
+  const N = 1000, pos = Math.round(N * p), tp = Math.round(pos * se), fn = pos - tp, neg = N - pos, fp = Math.round(neg * (1 - sp));
+  let s = `<title id="gT">Patients</title>`;
+  for (let i = 0; i < N; i++) {
+    const x = 20 + (i % 50) * 13.6, y = 20 + Math.floor(i / 50) * 13.6;
+    let fill, stroke = "none", sw = 0;
+    if (i < tp) fill = "#1b4de4";
+    else if (i < pos) { fill = "#ffffff"; stroke = "#d6215a"; sw = 2; }
+    else if (i < pos + fp) fill = "#e0930b";
+    else fill = "#e3e7ef";
+    s += `<rect x="${x}" y="${y}" width="11" height="11" rx="2" fill="${fill}" stroke="${stroke}" stroke-width="${sw}"/>`;
+  }
+  $("grid").innerHTML = s;
+  const ppv = (se * p) / (se * p + (1 - sp) * (1 - p));
+  $("out").textContent =
+    `PPV = (sens × prev) / (sens × prev + (1 − spec) × (1 − prev)) = (${se.toFixed(2)}×${p.toFixed(3)}) / (${(se * p).toFixed(4)} + ${(1 - sp).toFixed(3)}×${(1 - p).toFixed(3)}) = ${ppv.toFixed(2)}\n` +
+    `per 1,000: ${tp} correct referrals, ${fp} false alarms, ${fn} missed cases — ${(tp + fp)} referrals, of which ${((1 - ppv) * 100).toFixed(0)}% are false alarms`;
+}
+document.querySelectorAll("[data-s]").forEach(b => b.onclick = () => { const [p, a, c] = b.dataset.s.split(","); $("prev").value = p; $("sens").value = a; $("spec").value = c; draw(); });
+["prev", "sens", "spec"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

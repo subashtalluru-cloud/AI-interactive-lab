@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Padding, stride and feature-map size — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:287">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 46 · Lab L46.1</span></p>
+</div></header>
+<main>
+<h1>Padding, stride and the size of a feature map</h1>
+<p class="lede">Four dials set how big a convolution’s output is. The formula is just counting: how many places can the kernel sit, stepping s at a time, on an input padded by p on each side?</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="n">Input size n <span class="val" id="nV"></span></label><input type="range" id="n" min="3" max="12" step="1" value="5"></div>
+    <div class="control"><label for="k">Kernel size k <span class="val" id="kV"></span></label><input type="range" id="k" min="1" max="5" step="1" value="3"></div>
+    <div class="control"><label for="p">Padding p <span class="val" id="pV"></span></label><input type="range" id="p" min="0" max="3" step="1" value="0"></div>
+    <div class="control"><label for="s">Stride s <span class="val" id="sV"></span></label><input type="range" id="s" min="1" max="4" step="1" value="1"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="grid" viewBox="0 0 720 360" role="img" aria-labelledby="gT"><title id="gT">Padded input with every kernel position, and the resulting output grid</title></svg>
+  <figcaption>Left: the input (cobalt) with padding (grey); the amber squares mark the top-left corner of every kernel position; one kernel window is outlined. Right: the output, one cell per position.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">With a 5 × 5 input and 3 × 3 kernel: no padding → 3; padding 1 → 5 (same size); padding 1 and stride 2 → 3, a downsampled map (Math Box 46.1).</p>
+<p class="note">Padding lets edge pixels be seen as often as central ones and keeps sizes steady through many layers. Stride and pooling shrink the map, letting later layers see a larger area of the image for the same cost — the growing receptive field of Chapter 46. The price is resolution: every halving is a chance to lose a lesion only a few pixels wide.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const n = +$("n").value, k = Math.min(+$("k").value, +$("n").value + 2 * +$("p").value), p = +$("p").value, s = +$("s").value;
+  ["n", "k", "p", "s"].forEach(id => $(id + "V").textContent = $(id).value);
+  const N = n + 2 * p, out = Math.floor((N - k) / s) + 1, cs = Math.min(28, 320 / N);
+  let g = `<title id="gT">Grid</title>`;
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const pad = r < p || c < p || r >= n + p || c >= n + p;
+    g += `<rect x="${20 + c * cs}" y="${20 + r * cs}" width="${cs - 2}" height="${cs - 2}" fill="${pad ? "#e3e7ef" : "#1b4de4"}" fill-opacity="${pad ? 1 : .25}"/>`;
+  }
+  for (let i = 0; i < out; i++) for (let j = 0; j < out; j++) g += `<circle cx="${20 + j * s * cs + cs / 2 - 1}" cy="${20 + i * s * cs + cs / 2 - 1}" r="${cs / 5}" fill="#e0930b"/>`;
+  g += `<rect x="${20 - 1}" y="${20 - 1}" width="${k * cs}" height="${k * cs}" fill="none" stroke="#d6215a" stroke-width="3"/>`;
+  const oc = Math.min(28, 280 / Math.max(out, 1));
+  for (let i = 0; i < out; i++) for (let j = 0; j < out; j++) g += `<rect x="${420 + j * oc}" y="${20 + i * oc}" width="${oc - 2}" height="${oc - 2}" fill="#0e8f6e" fill-opacity="0.6"/>`;
+  g += `<text x="20" y="${30 + N * cs}" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">padded input ${N} × ${N}</text><text x="420" y="${30 + out * oc}" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">output ${out} × ${out}</text>`;
+  $("grid").innerHTML = g;
+  const exact = (N - k) / s;
+  $("out").textContent =
+    `output = ⌊(n + 2p − k) / s⌋ + 1 = ⌊(${n} + ${2 * p} − ${k}) / ${s}⌋ + 1 = ⌊${exact.toFixed(2)}⌋ + 1 = ${out}` +
+    (Number.isInteger(exact) ? "" : `\n(the last ${Math.round((exact - Math.floor(exact)) * s)} column(s) of the padded input are never the start of a window — they are skipped)`) +
+    `\ncells: ${n * n} in → ${out * out} out`;
+}
+["n", "k", "p", "s"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

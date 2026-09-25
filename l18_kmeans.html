@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>k-means, one step at a time — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:240">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 18 · Lab L18.1</span></p>
+</div></header>
+<main>
+<h1>k-means, one step at a time</h1>
+<p class="lede">Two moves, repeated: assign every point to its nearest centre, then move each centre to the mean of its points. Each move can only lower the total squared distance J, so the process settles — though not always in the best place.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="set">Data</label><select id="set"><option value="book">Book’s 1-D points: 1, 2, 3, 10, 11, 12</option><option value="blobs">Three 2-D clusters</option><option value="odd">Elongated clusters</option></select></div>
+    <div class="control"><label for="k">k <span class="val" id="kV"></span></label><input type="range" id="k" min="1" max="6" step="1" value="2"></div>
+    <div class="control" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end">
+      <button id="step">Next step</button><button id="run" class="ghost">Run to convergence</button><button id="restart" class="ghost">New random start</button><button id="bookstart" class="ghost">Book’s poor start</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 600 420" role="img" aria-labelledby="pT" style="max-width:600px;display:block;margin:auto"><title id="pT">Points coloured by cluster with centres</title></svg>
+  <figcaption>Dots coloured by assigned cluster; crosses are centres; faint trails show where each centre has moved.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s run: from centres 1 and 2, the first update moves the second centre to 7.6; the next gives 2 and 11; then nothing changes. J = 4 (Math Box 18.1).</p>
+<p class="note">On the three-cluster data, press “New random start” a few times with k = 3: sometimes two centres share one cluster and one centre straddles two — a local minimum with larger J. That is why k-means is run several times. On elongated clusters it cuts across the natural groups, because it assumes round ones. And k is your choice: the algorithm will happily return six clusters of anything. Whether a cluster is a disease subtype or a scanner artefact is a scientific question (Chapter 18).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const COL = ["#1b4de4", "#d6215a", "#0e8f6e", "#e0930b", "#6c3fd1", "#2f6fe0"];
+let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+const g = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+const DATA = {
+  book: [1, 2, 3, 10, 11, 12].map(v => [v, 0]),
+  blobs: [[3, 3], [9, 4], [6, 9]].flatMap(([a, b]) => Array.from({ length: 25 }, () => [a + g() * .9, b + g() * .9])),
+  odd: [[2, 6], [8, 4]].flatMap(([a, b]) => Array.from({ length: 35 }, () => { const t = g() * 2.5; return [a + t * .4 + g() * .3, b + t + g() * .3]; }))
+};
+let P, C, trail, assign, phase, iter, done;
+function J() { return P.reduce((s, p, i) => s + (p[0] - C[assign[i]][0]) ** 2 + (p[1] - C[assign[i]][1]) ** 2, 0); }
+function init(book) {
+  P = DATA[$("set").value]; const k = +$("k").value;
+  if (book && $("set").value === "book") C = [[1, 0], [2, 0]].concat(Array.from({ length: Math.max(0, k - 2) }, (_, i) => [3 + i, 0])).slice(0, k);
+  else { const idx = new Set(); while (idx.size < Math.min(k, P.length)) idx.add(Math.floor(rnd() * P.length)); C = [...idx].map(i => P[i].slice()); }
+  trail = C.map(c => [c.slice()]); assign = P.map(() => -1); phase = "assign"; iter = 0; done = false; draw("Start: centres placed.");
+}
+function step() {
+  if (done) return;
+  if (phase === "assign") {
+    const old = assign.slice();
+    assign = P.map(p => { let b = 0, bd = Infinity; C.forEach((c, j) => { const d = (p[0] - c[0]) ** 2 + (p[1] - c[1]) ** 2; if (d < bd) { bd = d; b = j; } }); return b; });
+    phase = "update"; iter++;
+    if (iter > 1 && old.every((v, i) => v === assign[i])) { done = true; draw(`Iteration ${iter}: assignments unchanged — converged.`); return; }
+    draw(`Iteration ${iter}, assign: each point joins its nearest centre.`);
+  } else {
+    C = C.map((c, j) => { const m = P.filter((_, i) => assign[i] === j); return m.length ? [m.reduce((s, p) => s + p[0], 0) / m.length, m.reduce((s, p) => s + p[1], 0) / m.length] : c; });
+    C.forEach((c, j) => trail[j].push(c.slice())); phase = "assign";
+    draw(`Iteration ${iter}, update: each centre moves to the mean of its points.`);
+  }
+}
+function draw(msg) {
+  $("kV").textContent = $("k").value;
+  const one = $("set").value === "book";
+  const X = v => one ? 40 + v / 13 * 520 : 40 + v / 12 * 520, Y = v => one ? 210 : 390 - v / 12 * 360;
+  let s = `<title id="pT">k-means</title><rect x="20" y="10" width="560" height="400" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  if (one) for (let v = 0; v <= 13; v++) s += `<text x="${X(v)}" y="250" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">${v}</text>`;
+  trail.forEach((t, j) => s += `<polyline fill="none" stroke="${COL[j]}" stroke-opacity="0.35" stroke-width="2" points="${t.map(c => `${X(c[0])},${Y(c[1]) + (one ? -30 - j * 10 : 0)}`).join(" ")}"/>`);
+  P.forEach((p, i) => s += `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="${one ? 9 : 5}" fill="${assign[i] >= 0 ? COL[assign[i]] : "#9aa3b5"}" fill-opacity="0.85"/>`);
+  C.forEach((c, j) => { const x = X(c[0]), y = Y(c[1]) + (one ? -30 - j * 10 : 0); s += `<path d="M ${x - 9} ${y - 9} L ${x + 9} ${y + 9} M ${x - 9} ${y + 9} L ${x + 9} ${y - 9}" stroke="${COL[j]}" stroke-width="4"/>`; if (one) s += `<text x="${x}" y="${y - 12}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" fill="${COL[j]}">${c[0].toFixed(1)}</text>`; });
+  $("plot").innerHTML = s;
+  $("out").textContent = `${msg}\ncentres: ${C.map(c => one ? c[0].toFixed(2) : `(${c[0].toFixed(1)}, ${c[1].toFixed(1)})`).join(", ")}` + (assign[0] >= 0 ? `\nJ = Σ squared distance to assigned centre = ${J().toFixed(2)}` : "");
+}
+$("step").onclick = step;
+$("run").onclick = () => { let n = 0; while (!done && n++ < 200) step(); };
+$("restart").onclick = () => init(false);
+$("bookstart").onclick = () => { $("set").value = "book"; $("k").value = 2; init(true); };
+["set", "k"].forEach(id => $(id).addEventListener(id === "k" ? "input" : "change", () => init($("set").value === "book")));
+init(true);
+</script>
+</main></body></html>

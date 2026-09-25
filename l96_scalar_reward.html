@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why one preference number blurs trade-offs — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:5">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 93, 96 · Lab L96.1</span></p>
+</div></header>
+<main>
+<h1>Why one preference number blurs trade-offs</h1>
+<p class="lede">Labellers rate three answers to a borderline medication question on helpfulness and harmlessness. Collapse the two into one weighted score and the ranking can hide exactly the conflict that mattered.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="w">Weight on harmlessness <span class="val" id="wV"></span></label><input type="range" id="w" min="0" max="1" step="0.01" value="0.5"></div>
+<div class="control"><label><input type="checkbox" id="noC"> Remove answer C (only A and B available)</label></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 300" role="img" aria-labelledby="pT"><title id="pT">Answers on helpfulness and harmlessness axes, with the scoring direction</title></svg>
+<figcaption>Each answer’s two scores. The dashed line is a contour of the combined score; its direction is set by the weight. The highest-scoring answer is outlined.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">A (9, 2) averages 5.5, B (1, 9) averages 5.0, C (7, 9) averages 8.0 (Math Box 96.1). C wins at almost any weight: it is good on both.</p>
+<p class="note">Remove C and the choice flips between A (states a dangerous quantity) and B (refuses outright) at weight 0.53 — and at an equal weighting the dangerous answer narrowly wins. A single number cannot express “this must never fall below a floor”. That is why post-training uses separate criteria, constitutions and hard rules alongside scalar rewards (Chapters 93, 96).</p>
+<script>
+const $ = id => document.getElementById(id);
+const R = [["A", 9, 2, "#d6215a"], ["B", 1, 9, "#e0930b"], ["C", 7, 9, "#0e8f6e"]];
+function draw() {
+  const w = +$("w").value, rs = $("noC").checked ? R.slice(0, 2) : R; $("wV").textContent = w.toFixed(2);
+  const sc = rs.map(([n, h, s]) => (1 - w) * h + w * s), best = sc.indexOf(Math.max(...sc));
+  const X = v => 80 + v * 50, Y = v => 270 - v * 25;
+  let g = `<title id="pT">Trade-off</title><rect x="80" y="20" width="500" height="250" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  for (let v = 0; v <= 10; v += 2) g += `<text x="${X(v)}" y="288" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text><text x="72" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`;
+  g += `<text x="330" y="300" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">helpfulness</text><text x="600" y="30" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">harmlessness ↑</text>`;
+  const t = sc[best]; if (w < 1) { const hAt = s => (t - w * s) / (1 - w); g += `<line x1="${X(hAt(0))}" y1="${Y(0)}" x2="${X(hAt(10))}" y2="${Y(10)}" stroke="#0f1626" stroke-dasharray="6 4"/>`; }
+  rs.forEach(([n, h, s, c], i) => g += `<circle cx="${X(h)}" cy="${Y(s)}" r="${i === best ? 14 : 10}" fill="${c}" stroke="#0f1626" stroke-width="${i === best ? 3 : 0}"/><text x="${X(h)}" y="${Y(s) + 5}" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#fff">${n}</text>`);
+  $("plot").innerHTML = `<defs><clipPath id="cp"><rect x="80" y="20" width="500" height="250"/></clipPath></defs>` + g.replace('<line x1="', '<line clip-path="url(#cp)" x1="');
+  $("out").textContent = rs.map(([n, h, s], i) => `${n}: ${(1 - w).toFixed(2)}×${h} + ${w.toFixed(2)}×${s} = ${sc[i].toFixed(2)}`).join("\n") + `\nhighest: ${rs[best][0]}`;
+}
+$("w").addEventListener("input", draw); $("noC").addEventListener("change", draw); draw();
+</script></main></body></html>

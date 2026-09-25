@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game-tree search — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:217">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 4, 5 · Labs L4.1 / L5.1</span></p>
+</div></header>
+<main>
+<h1>Game-tree search: minimax and the explosion</h1>
+<p class="lede">To choose a move, assume the opponent will reply as well as possible, and pick the move whose worst case is best. It works — until the tree grows. Each extra level multiplies the positions by the branching factor.</p>
+<h2>1 · Minimax on a small tree</h2>
+<div class="panel"><div class="controls" id="leaves"></div>
+<div class="controls"><div class="control" style="align-self:end"><button id="book" class="ghost">Book’s leaves (+3, −2, +1, +2)</button></div></div></div>
+<figure><svg id="tree" viewBox="0 0 720 240" role="img" aria-labelledby="tT"><title id="tT">Two-level game tree with minimax values</title></svg>
+<figcaption>MIN nodes take the smallest child; the MAX root takes the largest. The chosen move is highlighted.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>2 · How fast the tree grows</h2>
+<div class="panel"><div class="controls">
+<div class="control"><label for="b">Branching factor b <span class="val" id="bV"></span></label><input type="range" id="b" min="2" max="250" step="1" value="35"></div>
+<div class="control"><label for="d">Depth d (half-moves) <span class="val" id="dV"></span></label><input type="range" id="d" min="1" max="20" step="1" value="10"></div>
+<div class="control"><label for="r">Positions evaluated per second (log₁₀) <span class="val" id="rV"></span></label><input type="range" id="r" min="3" max="12" step="0.5" value="8"></div>
+</div></div>
+<p class="readout" id="out2"></p>
+<h2>What to notice</h2>
+<p class="finding">Move A contains the best outcome (+3) but is worse: the opponent answers with −2. B guarantees +1, so minimax plays B. Chess, b ≈ 35: 1.5 million positions at depth 4, 2.8 × 10¹⁵ at depth 10 (Math Boxes 4.1, 5.1).</p>
+<p class="note">Go has b ≈ 250. No speed-up conquers b^d: every extra level costs a factor of b. Progress came from knowledge — pruning, evaluation functions, and eventually learned value networks that let search look at far fewer positions (Chapters 4, 5, 7, 64).</p>
+<script>
+const $ = id => document.getElementById(id);
+let Lv = [3, -2, 1, 2];
+function build() { $("leaves").innerHTML = Lv.map((v, i) => `<div class="control"><label>Leaf ${i + 1}</label><input id="L${i}" type="number" value="${v}" style="width:4rem"></div>`).join(""); Lv.forEach((_, i) => $("L" + i).addEventListener("input", e => { Lv[i] = +e.target.value; draw(); })); }
+function draw() {
+  const A = Math.min(Lv[0], Lv[1]), B = Math.min(Lv[2], Lv[3]), root = Math.max(A, B), pick = A >= B ? "A" : "B";
+  const node = (x, y, lab, v, col) => `<circle cx="${x}" cy="${y}" r="24" fill="${col}"/><text x="${x}" y="${y + 5}" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="13" font-weight="700" fill="#fff">${v > 0 ? "+" : ""}${v}</text><text x="${x}" y="${y - 30}" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${lab}</text>`;
+  const P = { R: [360, 45], A: [200, 125], B: [520, 125], l0: [130, 205], l1: [270, 205], l2: [450, 205], l3: [590, 205] };
+  let s = `<title id="tT">Tree</title>`;
+  [["R", "A"], ["R", "B"], ["A", "l0"], ["A", "l1"], ["B", "l2"], ["B", "l3"]].forEach(([u, v]) => { const hot = (u === "R" && v === pick) || (u === pick && ((pick === "A" && Lv[v === "l0" ? 0 : 1] === A && (v === "l0" || v === "l1")) || (pick === "B" && (v === "l2" || v === "l3") && Lv[+v[1]] === B))); s += `<line x1="${P[u][0]}" y1="${P[u][1]}" x2="${P[v][0]}" y2="${P[v][1]}" stroke="${hot ? "#0e8f6e" : "#b8c0cf"}" stroke-width="${hot ? 5 : 2}"/>`; });
+  s += node(...P.R, "YOU (MAX)", root, "#0f1626") + node(...P.A, "move A (MIN)", A, "#6c3fd1") + node(...P.B, "move B (MIN)", B, "#6c3fd1") + Lv.map((v, i) => node(...P["l" + i], "", v, v >= 0 ? "#1b4de4" : "#d6215a")).join("");
+  $("tree").innerHTML = s;
+  $("out").textContent = `A = min(${Lv[0]}, ${Lv[1]}) = ${A};  B = min(${Lv[2]}, ${Lv[3]}) = ${B};  root = max(${A}, ${B}) = ${root} → play ${pick}\nnaïve optimism (best leaf) would pick ${Lv.indexOf(Math.max(...Lv)) < 2 ? "A" : "B"}`;
+  const b = +$("b").value, d = +$("d").value, r = 10 ** +$("r").value; $("bV").textContent = b; $("dV").textContent = d; $("rV").textContent = "10^" + $("r").value;
+  const N = b ** d, t = N / r, fmt = t < 60 ? t.toFixed(2) + " s" : t < 3.15e7 ? (t / 3600).toFixed(1) + " h" : (t / 3.15e7).toExponential(2) + " years";
+  $("out2").textContent = `N = b^d = ${b}^${d} = ${N.toExponential(2)} positions\nat ${r.toExponential(0)} positions/s: ${fmt}\none level deeper multiplies this by ${b}`;
+}
+$("book").onclick = () => { Lv = [3, -2, 1, 2]; build(); draw(); };
+["b", "d", "r"].forEach(i => $(i).addEventListener("input", draw)); build(); draw();
+</script></main></body></html>

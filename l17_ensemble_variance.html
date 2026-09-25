@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why averaging many models helps — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:238">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 17, 132 · Lab L17.2</span></p>
+</div></header>
+<main>
+<h1>Why averaging many models helps — and where it stops</h1>
+<p class="lede">Average B models, each with prediction variance σ². If their errors were independent, the variance would fall as σ²/B. But models trained on similar data make similar mistakes, and shared mistakes do not average away.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="rho">Correlation between models ρ <span class="val" id="rhoV"></span></label><input type="range" id="rho" min="0" max="1" step="0.01" value="0.5"></div>
+    <div class="control"><label for="B">Number of models B <span class="val" id="BV"></span></label><input type="range" id="B" min="1" max="200" step="1" value="100"></div>
+    <div class="control" style="align-self:end"><button id="sim">Simulate 400 ensembles</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 280" role="img" aria-labelledby="pT"><title id="pT">Variance of the ensemble average against number of models</title></svg>
+  <figcaption>Curves for ρ = 0, 0.2, 0.5 and 0.8 (grey) and your chosen ρ (crimson). Dashed: the floor ρσ² that no number of models can go below. Dot: the simulated variance for your settings.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">With σ² = 1: independent models, B = 100 → 0.01. At ρ = 0.5, B = 100 → 0.505, and even infinitely many models only reach 0.5 (Math Box 17.2).</p>
+<p class="note">This is why random forests work hard to <em>decorrelate</em> their trees — each is trained on a bootstrap sample and considers a random subset of features at every split. Lowering ρ helps more than adding trees. The same arithmetic governs majority voting by several AI graders (Chapter 132) and repeated samples from one language model (Chapter 164): voters who share blind spots vote together.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const gauss = () => Math.sqrt(-2 * Math.log(Math.random() + 1e-12)) * Math.cos(2 * Math.PI * Math.random());
+const V = (rho, B) => rho + (1 - rho) / B;
+let simV = null;
+function simulate() {
+  const rho = +$("rho").value, B = +$("B").value, out = [];
+  for (let r = 0; r < 400; r++) { const shared = gauss(); let s = 0; for (let b = 0; b < B; b++) s += Math.sqrt(rho) * shared + Math.sqrt(1 - rho) * gauss(); out.push(s / B); }
+  const m = out.reduce((a, b) => a + b) / 400; simV = { v: out.reduce((a, x) => a + (x - m) ** 2, 0) / 399, key: rho + "," + B };
+}
+function draw() {
+  const rho = +$("rho").value, B = +$("B").value; $("rhoV").textContent = rho.toFixed(2); $("BV").textContent = B;
+  const X = b => 60 + (Math.log10(b)) / Math.log10(200) * 620, Y = v => 250 - Math.min(v, 1) * 220;
+  let s = `<title id="pT">Variance</title><rect x="60" y="30" width="620" height="220" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  [0, .25, .5, .75, 1].forEach(v => s += `<text x="52" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  [1, 2, 5, 10, 20, 50, 100, 200].forEach(b => s += `<text x="${X(b)}" y="268" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${b}</text>`);
+  const bs = Array.from({ length: 200 }, (_, i) => i + 1);
+  [0, .2, .5, .8].forEach(r => s += `<polyline fill="none" stroke="#9aa3b5" stroke-width="1.5" points="${bs.map(b => `${X(b)},${Y(V(r, b))}`).join(" ")}"/>`);
+  s += `<line x1="60" y1="${Y(rho)}" x2="680" y2="${Y(rho)}" stroke="#d6215a" stroke-dasharray="5 4"/>`;
+  s += `<polyline fill="none" stroke="#d6215a" stroke-width="3" points="${bs.map(b => `${X(b)},${Y(V(rho, b))}`).join(" ")}"/>`;
+  if (simV && simV.key === rho + "," + B) s += `<circle cx="${X(B)}" cy="${Y(simV.v)}" r="7" fill="#0e8f6e" stroke="#0f1626"/>`;
+  $("plot").innerHTML = s;
+  $("out").textContent =
+    `Var(average) = ρσ² + (1 − ρ)σ²/B = ${rho.toFixed(2)} + ${(1 - rho).toFixed(2)}/${B} = ${V(rho, B).toFixed(4)}   (σ² = 1)\n` +
+    `floor as B → ∞: ${rho.toFixed(2)};   ${B} independent models would give ${(1 / B).toFixed(4)}` +
+    (simV && simV.key === rho + "," + B ? `\nsimulated over 400 ensembles: ${simV.v.toFixed(4)}` : "");
+}
+$("sim").onclick = () => { simulate(); draw(); };
+["rho", "B"].forEach(id => $(id).addEventListener("input", draw));
+draw();
+</script>
+</main></body></html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What a ten-point drop in error means — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:255">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 27, 49 · Lab L49.1</span></p>
+</div></header>
+<main>
+<h1>What a ten-point drop in error means</h1>
+<p class="lede">In 2012 AlexNet cut ImageNet top-5 error from 26.2% to 15.3%. Is a gap like that meaningful, or could it be chance? It depends on the size of the test set — and on the relative, not only the absolute, change.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="e1">Previous error <span class="val" id="e1V"></span></label><input type="range" id="e1" min="0.01" max="0.5" step="0.001" value="0.262"></div>
+<div class="control"><label for="e2">New error <span class="val" id="e2V"></span></label><input type="range" id="e2" min="0.01" max="0.5" step="0.001" value="0.153"></div>
+<div class="control"><label for="n">Test images <span class="val" id="nV"></span></label><input type="range" id="n" min="2" max="5" step="0.05" value="5"></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">26.2% → 15.3% on 100,000 images: 26,200 → 15,300 errors, a 42% relative reduction; the standard error near 20% is about 0.13 points, so the 10.9-point gap is about eighty standard errors (Math Box 49.1).</p>
+<p class="note">Shrink the test set to a few hundred images — the size of many clinical validation studies — and the same gap is only a few standard errors. Small differences on small test sets are where overclaiming starts (Chapters 27, 49, 163).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const e1 = +$("e1").value, e2 = +$("e2").value, n = Math.round(10 ** +$("n").value);
+  $("e1V").textContent = (e1 * 100).toFixed(1) + "%"; $("e2V").textContent = (e2 * 100).toFixed(1) + "%"; $("nV").textContent = n.toLocaleString();
+  const m = (e1 + e2) / 2, se = Math.sqrt(m * (1 - m) / n), sed = Math.sqrt(e1 * (1 - e1) / n + e2 * (1 - e2) / n);
+  $("out").textContent = `errors: ${Math.round(e1 * n).toLocaleString()} → ${Math.round(e2 * n).toLocaleString()} of ${n.toLocaleString()}\nabsolute drop ${((e1 - e2) * 100).toFixed(1)} points;  relative reduction ${((e1 - e2) / e1 * 100).toFixed(0)}%\nSE of one error rate near ${(m * 100).toFixed(0)}%: √(${m.toFixed(3)}×${(1 - m).toFixed(3)}/${n}) = ${(se * 100).toFixed(2)} points → gap = ${((e1 - e2) / se).toFixed(0)} SEs\nSE of the difference between two independent test runs: ${(sed * 100).toFixed(2)} points → gap = ${((e1 - e2) / sed).toFixed(1)} SEs`;
+}
+["e1", "e2", "n"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

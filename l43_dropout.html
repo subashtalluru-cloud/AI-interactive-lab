@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dropout — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:238">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 17, 43 · Lab L43.1</span></p>
+</div></header>
+<main>
+<h1>Dropout: training many thinned networks at once</h1>
+<p class="lede">At every training step, each hidden unit is switched off with probability p; the survivors are scaled up by 1/(1 − p) so the next layer receives the same input on average. No unit can rely on any particular partner.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="p">Dropout rate p <span class="val" id="pV"></span></label><input type="range" id="p" min="0" max="0.9" step="0.05" value="0.5"></div>
+    <div class="control" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end"><button id="one">New random mask</button><button id="many" class="ghost">Average 1,000 masks</button><button id="bk" class="ghost">Book’s two masks</button></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 240" role="img" aria-labelledby="pT"><title id="pT">Activations before and after dropout</title></svg>
+  <figcaption>Grey outline: the layer’s activations (0.8, 1.2, 0.4, 2.0). Coloured bars: after this step’s mask and scaling. Green markers: the running average over masks, which converges to the original values.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s masks at p = 0.5: keep units 1 and 4 → (1.6, 0, 0, 4.0); keep units 2 and 3 → (0, 2.4, 0.8, 0). The expected value of unit 1 is 0.5 × 1.6 + 0.5 × 0 = 0.8, its original value (Math Box 43.1).</p>
+<p class="note">The average is right, but any single step is noisy — raise p and the noise grows. That noise is the regularizer: each step trains a different sub-network, and at test time dropout is switched off and the full network behaves roughly like their average, the ensemble effect of Chapter 17 for almost no cost. Forgetting to switch it off at inference (model.eval()) gives random, degraded predictions.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const A = [0.8, 1.2, 0.4, 2.0];
+let cur = [1, 0, 0, 1], sum = [0, 0, 0, 0], cnt = 0;
+function apply(mask, p) { return A.map((a, i) => mask[i] ? a / (1 - p) : 0); }
+function draw() {
+  const p = +$("p").value; $("pV").textContent = p.toFixed(2);
+  const out = apply(cur, p), avg = cnt ? sum.map(v => v / cnt) : null;
+  const X = i => 80 + i * 150, Y = v => 200 - Math.min(v, 8) * 40;
+  let s = `<title id="pT">Dropout</title><line x1="60" y1="200" x2="680" y2="200" stroke="#b8c0cf"/>`;
+  A.forEach((a, i) => {
+    s += `<rect x="${X(i)}" y="${Y(a)}" width="70" height="${200 - Y(a)}" fill="none" stroke="#9aa3b5" stroke-width="2" stroke-dasharray="4 3"/>`;
+    s += `<rect x="${X(i) + 12}" y="${Y(out[i])}" width="46" height="${200 - Y(out[i])}" fill="${cur[i] ? "#1b4de4" : "#e3e7ef"}"/>`;
+    s += `<text x="${X(i) + 35}" y="${Y(Math.max(out[i], a)) - 8}" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12" fill="#0f1626">${out[i].toFixed(2)}</text>`;
+    if (avg) s += `<line x1="${X(i) - 4}" y1="${Y(avg[i])}" x2="${X(i) + 74}" y2="${Y(avg[i])}" stroke="#0e8f6e" stroke-width="3"/>`;
+    s += `<text x="${X(i) + 35}" y="220" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">unit ${i + 1} ${cur[i] ? "" : "(off)"}</text>`;
+  });
+  $("plot").innerHTML = s;
+  $("out").textContent =
+    `mask: (${cur.join(", ")});  scale 1/(1 − ${p.toFixed(2)}) = ${(1 / (1 - p)).toFixed(2)}\n` +
+    `output: (${out.map(v => v.toFixed(2)).join(", ")})  — sum ${out.reduce((a, b) => a + b, 0).toFixed(2)} vs original ${A.reduce((a, b) => a + b, 0).toFixed(2)}` +
+    (avg ? `\naverage over ${cnt.toLocaleString()} masks: (${avg.map(v => v.toFixed(3)).join(", ")})` : "");
+}
+const rmask = p => A.map(() => Math.random() >= p ? 1 : 0);
+$("one").onclick = () => { const p = +$("p").value; cur = rmask(p); const o = apply(cur, p); sum = sum.map((v, i) => v + o[i]); cnt++; draw(); };
+$("many").onclick = () => { const p = +$("p").value; for (let r = 0; r < 1000; r++) { const m = rmask(p), o = apply(m, p); sum = sum.map((v, i) => v + o[i]); cnt++; cur = m; } draw(); };
+$("bk").onclick = () => { $("p").value = 0.5; sum = [0, 0, 0, 0]; cnt = 0; cur = [1, 0, 0, 1]; const a = apply(cur, .5); cur = [0, 1, 1, 0]; const b = apply(cur, .5); sum = a.map((v, i) => v + b[i]); cnt = 2; draw(); };
+$("p").addEventListener("input", () => { sum = [0, 0, 0, 0]; cnt = 0; draw(); });
+draw();
+</script>
+</main></body></html>

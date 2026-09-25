@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Convolution — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:285">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 45–47 · Lab L45.1</span></p>
+</div></header>
+<main>
+<h1>Convolution: one small kernel, slid everywhere</h1>
+<p class="lede">A convolution slides a small grid of weights over the image. At each position it takes a dot product with the patch underneath — a question asked everywhere at once: “is there a dark-to-bright edge here?”, “is this spot brighter than its surroundings?”.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="img">Image</label><select id="img"><option value="book">Book’s 4 × 4 edge</option><option value="fundus">Drawn fundus (64 × 64)</option></select></div>
+    <div class="control"><label for="ker">Kernel</label>
+      <select id="ker"><option value="v2">Vertical edge 2 × 2 (book)</option><option value="sobx">Vertical edge, Sobel 3 × 3</option><option value="soby">Horizontal edge, Sobel 3 × 3</option><option value="blur">Blur 3 × 3</option><option value="lap">Spot detector (Laplacian)</option><option value="sharp">Sharpen</option></select></div>
+    <div class="control"><label for="pos">Kernel position (step through) <span class="val" id="posV"></span></label><input type="range" id="pos" min="0" max="8" step="1" value="0"></div>
+  </div>
+</div>
+
+<div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))">
+  <figure style="margin:0"><canvas id="cin" width="256" height="256" style="width:100%;image-rendering:pixelated;border-radius:6px" aria-label="Input image with kernel window"></canvas><figcaption>Input, with the kernel’s current window.</figcaption></figure>
+  <figure style="margin:0"><canvas id="cout" width="256" height="256" style="width:100%;image-rendering:pixelated;border-radius:6px" aria-label="Feature map"></canvas><figcaption>Feature map: blue positive, red negative, white near zero.</figcaption></figure>
+</div>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s image and 2 × 2 kernel give a 3 × 3 feature map: 0, 2, 0 in every row — strong response only where the window straddles the edge (Math Box 45.1).</p>
+<p class="note">On the fundus, the vertical-edge kernel lights up the left and right borders of vessels and disc; the Laplacian “spot detector” outlines the macula, the disc and every vessel — at this kernel size it responds wherever brightness changes abruptly, so it rings the borders rather than filling the spots. A CNN learns hundreds of such kernels from data rather than having them designed (Chapters 45–47), and stacks them so later layers detect combinations: vessel crossings, haemorrhages, cupping.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const K = {
+  v2: [[-1, 1], [-1, 1]], sobx: [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], soby: [[-1, -2, -1], [0, 0, 0], [1, 2, 1]],
+  blur: [[1, 1, 1], [1, 1, 1], [1, 1, 1]].map(r => r.map(v => v / 9)), lap: [[0, 1, 0], [1, -4, 1], [0, 1, 0]], sharp: [[0, -1, 0], [-1, 5, -1], [0, -1, 0]]
+};
+function fundus() {
+  const S = 64, cv = document.createElement("canvas"); cv.width = cv.height = S; const g = cv.getContext("2d");
+  g.fillStyle = "#000"; g.fillRect(0, 0, S, S);
+  g.fillStyle = "#8a3a1a"; g.beginPath(); g.arc(32, 32, 30, 0, 7); g.fill();
+  g.strokeStyle = "#3a0806"; g.lineWidth = 2; g.lineCap = "round";
+  [[44, 32, 32, 14, 12, 10], [44, 32, 32, 50, 12, 54], [44, 32, 54, 14, 58, 10], [44, 32, 54, 50, 58, 54]].forEach(([a, b, c, d, e, f]) => { g.beginPath(); g.moveTo(a, b); g.quadraticCurveTo(c, d, e, f); g.stroke(); });
+  g.fillStyle = "#f2d8a0"; g.beginPath(); g.arc(44, 32, 5, 0, 7); g.fill();
+  g.fillStyle = "#3a0c06"; g.beginPath(); g.arc(22, 33, 3, 0, 7); g.fill();
+  const d = g.getImageData(0, 0, S, S).data, a = []; for (let r = 0; r < S; r++) { a.push([]); for (let c = 0; c < S; c++) a[r].push((d[(r * S + c) * 4] * .5 + d[(r * S + c) * 4 + 1] * .5) / 255); }
+  return a;
+}
+const IMGS = { book: [[0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 1, 1], [0, 0, 1, 1]], fundus: fundus() };
+function conv(I, k) {
+  const h = I.length - k.length + 1, w = I[0].length - k[0].length + 1, O = [];
+  for (let r = 0; r < h; r++) { O.push([]); for (let c = 0; c < w; c++) { let s = 0; for (let i = 0; i < k.length; i++) for (let j = 0; j < k[0].length; j++) s += I[r + i][c + j] * k[i][j]; O[r].push(s); } }
+  return O;
+}
+function paint(id, M, signed, win) {
+  const cv = $(id), g = cv.getContext("2d"), n = M.length, m = M[0].length, cs = 256 / Math.max(n, m);
+  g.clearRect(0, 0, 256, 256);
+  const mx = Math.max(1e-6, ...M.flat().map(Math.abs));
+  for (let r = 0; r < n; r++) for (let c = 0; c < m; c++) {
+    const v = M[r][c];
+    if (signed) { const t = Math.min(1, Math.abs(v) / mx); g.fillStyle = v >= 0 ? `rgb(${255 - t * 228},${255 - t * 178},${255 - t * 27})` : `rgb(${255 - t * 41},${255 - t * 222},${255 - t * 165})`; }
+    else { const t = Math.round(Math.max(0, Math.min(1, v)) * 255); g.fillStyle = `rgb(${t},${t},${t})`; }
+    g.fillRect(c * cs, r * cs, Math.ceil(cs), Math.ceil(cs));
+    if (n <= 8) { g.fillStyle = signed ? "#0f1626" : (v > .5 ? "#0f1626" : "#fff"); g.font = "bold 20px ui-monospace,monospace"; g.textAlign = "center"; g.fillText(Number.isInteger(v) ? v : v.toFixed(2), c * cs + cs / 2, r * cs + cs / 2 + 7); }
+  }
+  if (win) { g.strokeStyle = "#e0930b"; g.lineWidth = 4; g.strokeRect(win[1] * cs, win[0] * cs, win[2] * cs, win[3] * cs); }
+}
+function draw() {
+  const I = IMGS[$("img").value], k = K[$("ker").value], O = conv(I, k);
+  const tot = O.length * O[0].length; $("pos").max = tot - 1; const p = Math.min(+$("pos").value, tot - 1); $("posV").textContent = `${p + 1} of ${tot}`;
+  const r = Math.floor(p / O[0].length), c = p % O[0].length;
+  paint("cin", I, false, [r, c, k[0].length, k.length]); paint("cout", O, true, [r, c, 1, 1]);
+  const terms = []; for (let i = 0; i < k.length; i++) for (let j = 0; j < k[0].length; j++) terms.push(`${+I[r + i][c + j].toFixed(2)}×${+k[i][j].toFixed(2)}`);
+  $("out").textContent =
+    `image ${I.length}×${I[0].length}, kernel ${k.length}×${k[0].length} → feature map ${O.length}×${O[0].length}  (n − k + 1, no padding)\n` +
+    `at row ${r + 1}, column ${c + 1}: ${terms.length <= 9 ? terms.join(" + ") : "…"} = ${O[r][c].toFixed(3)}` +
+    (I.length <= 8 ? `\nfeature map rows: ${O.map(row => "(" + row.map(v => +v.toFixed(2)).join(", ") + ")").join("  ")}` : "");
+}
+$("img").addEventListener("change", () => { $("pos").value = 0; draw(); });
+$("ker").addEventListener("change", draw); $("pos").addEventListener("input", draw);
+draw();
+</script>
+</main></body></html>

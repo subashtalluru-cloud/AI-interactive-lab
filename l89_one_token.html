@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The journey of one token — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  .stage{border:1px solid var(--rule);border-radius:10px;padding:1rem 1.1rem;margin:.9rem 0;background:var(--paper)}
+  .stage h3{margin:0 0 .4rem;display:flex;gap:.6rem;align-items:baseline}
+  .stage .step{font-family:var(--sans);font-size:.8rem;color:var(--paper);background:var(--cobalt);
+    border-radius:999px;padding:.05rem .55rem}
+  .stage.off{opacity:.35}
+  .stage p{margin:.3rem 0}
+  .chips{display:flex;gap:.4rem;flex-wrap:wrap;margin:.4rem 0}
+  .chip{font-family:var(--mono);font-size:.9rem;border:1px solid var(--rule);border-radius:6px;padding:.15rem .5rem;background:var(--bench)}
+</style>
+</head>
+<body style="--hue:358">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 89, 74, 76, 80 · Lab L89.1</span></p>
+</div></header>
+
+<main>
+<h1>The journey of one token</h1>
+<p class="lede">“The IOP is …” — what happens, number by number, between the prompt and the word “high”. A miniature transformer with two dimensions and one block, using the exact values of Chapters 68–75, 73 and 89.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="T">Temperature <span class="val" id="TV"></span></label>
+      <input type="range" id="T" min="0.1" max="2.5" step="0.05" value="1"></div>
+    <div class="control"><label for="topk">Top-k (0 = off) <span class="val" id="topkV"></span></label>
+      <input type="range" id="topk" min="0" max="5" step="1" value="0"></div>
+    <div class="control"><label for="iop">Edit the embedding of “ IOP” (2nd value) <span class="val" id="iopV"></span></label>
+      <input type="range" id="iop" min="-1" max="2" step="0.05" value="1"></div>
+    <div class="control" style="display:flex;gap:.5rem;align-items:end">
+      <button id="next">Show next step</button><button id="all" class="ghost">Show all</button><button id="sample" class="ghost">Sample 1 token</button>
+    </div>
+  </div>
+</div>
+
+<div id="stages"></div>
+
+<h2>What to notice</h2>
+<p class="finding">Nothing mysterious happens at any step: lookups, dot products, a softmax-weighted average, additions, a small ReLU network, more dot products, one more softmax. “High” wins because the final vector points most nearly along the template for “high”.</p>
+<p class="note">Change the embedding of “ IOP”. The attention weights, the residual stream, the logits and the winner all shift: a different context vector produces a different continuation. In a real model, training has placed thousands of such vectors so that the same arithmetic yields sensible text.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const TOK = ["The", " IOP", " is"];
+const WQ = [[1,1],[0,1]], WK = [[1,0],[1,1]], WV = [[1,0],[0,2]];
+const W1 = [[1,0],[0,1],[1,-1],[-1,1]];
+const W2 = [[0.1,0,0.5,0],[0,-0.1,0,0.5]];
+const VOCAB = [[" high",[0.5,1.0]],[" elevated",[0.4,0.9]],[" normal",[0.3,0.2]],[" low",[0.6,-0.3]],[" banana",[-0.8,-0.5]]];
+const COL = ["#1b4de4","#0e8f6e","#e0930b","#6c3fd1","#d6215a"];
+let shown = 1, sampled = null;
+
+const mv = (v, M) => [v[0]*M[0][0] + v[1]*M[1][0], v[0]*M[0][1] + v[1]*M[1][1]];
+const dot = (a, b) => a.reduce((s, x, i) => s + x * b[i], 0);
+const f = v => (Math.abs(v) < 5e-4 ? 0 : v).toFixed(3);
+const vec = v => `(${v.map(f).join(", ")})`;
+
+function compute() {
+  const X = [[1,0],[0,+$("iop").value],[1,1]];
+  const Q = X.map(x => mv(x, WQ)), K = X.map(x => mv(x, WK)), V = X.map(x => mv(x, WV));
+  const q = Q[2], scores = K.map(k => dot(q, k) / Math.SQRT2);
+  const m = Math.max(...scores), e = scores.map(s => Math.exp(s - m)), se = e.reduce((a, b) => a + b);
+  const A = e.map(v => v / se);
+  const att = [0,1].map(j => A.reduce((s, a, i) => s + a * V[i][j], 0));
+  const r1 = [X[2][0] + att[0], X[2][1] + att[1]];
+  const pre = W1.map(w => dot(w, r1)), hid = pre.map(v => Math.max(0, v));
+  const ffn = W2.map(w => dot(w, hid));
+  const h = [r1[0] + ffn[0], r1[1] + ffn[1]];
+  const logits = VOCAB.map(([, t]) => dot(h, t));
+  const T = +$("T").value, k = +$("topk").value;
+  const order = logits.map((v, i) => i).sort((a, b) => logits[b] - logits[a]);
+  const keep = new Set(k ? order.slice(0, k) : order);
+  const lm = Math.max(...logits);
+  const ex = logits.map((v, i) => keep.has(i) ? Math.exp((v - lm) / T) : 0), s = ex.reduce((a, b) => a + b);
+  const p = ex.map(v => v / s);
+  return { X, Q, K, V, scores, A, att, r1, pre, hid, ffn, h, logits, p, order };
+}
+
+function bars(p) {
+  return `<svg viewBox="0 0 600 150" role="img" aria-label="Next-token probabilities">` + p.map((v, i) => {
+    const w = 540 * v;
+    return `<text x="0" y="${22 + i * 27}" font-family="ui-monospace,monospace" font-size="13" fill="#0f1626">${VOCAB[i][0].trim()}</text>
+      <rect x="80" y="${10 + i * 27}" width="${Math.max(1, w * 0.85)}" height="16" rx="3" fill="${COL[i]}"/>
+      <text x="${88 + w * 0.85}" y="${22 + i * 27}" font-family="ui-sans-serif,system-ui" font-size="12" fill="#0f1626">${(v * 100).toFixed(1)}%</text>`;
+  }).join("") + `</svg>`;
+}
+
+function draw() {
+  $("TV").textContent = (+$("T").value).toFixed(2);
+  $("topkV").textContent = +$("topk").value || "off";
+  $("iopV").textContent = (+$("iop").value).toFixed(2);
+  const c = compute();
+  const S = [
+    ["Tokenize", `<div class="chips">${TOK.map(t => `<span class="chip">“${t}”</span>`).join("")}</div>
+      <p>The text is split into three tokens (Chapter 79). Real token IDs depend on the tokenizer.</p>`],
+    ["Embed", `<p>Each token selects a row of the embedding matrix (Chapter 80):</p>
+      <div class="chips">${TOK.map((t, i) => `<span class="chip">${t.trim()} → ${vec(c.X[i])}</span>`).join("")}</div>`],
+    ["Project to queries, keys and values", `<p>Q = XW_Q, K = XW_K, V = XW_V (Chapter 68). For the last token, “ is”: q = ${vec(c.Q[2])}.</p>
+      <div class="chips">${TOK.map((t, i) => `<span class="chip">k${i + 1} ${vec(c.K[i])}</span>`).join("")}${TOK.map((t, i) => `<span class="chip">v${i + 1} ${vec(c.V[i])}</span>`).join("")}</div>`],
+    ["Attend (causal)", `<p>Scores q·k ÷ √2 = (${c.scores.map(f).join(", ")}); softmax gives weights
+      <strong>(${c.A.map(f).join(", ")})</strong> over (The, IOP, is). The last token may see all three, since all are in the past or present (Chapter 75).</p>
+      <p>Attention output = weighted average of values = ${vec(c.att)}.</p>`],
+    ["Add to the residual stream", `<p>(1, 1) + ${vec(c.att)} = <strong>${vec(c.r1)}</strong> (Chapter 73).</p>`],
+    ["Feed-forward network", `<p>Hidden pre-activations (${c.pre.map(f).join(", ")}) → ReLU → (${c.hid.map(f).join(", ")}); output ${vec(c.ffn)}.</p>
+      <p>Residual add: <strong>h = ${vec(c.h)}</strong> — the final vector at the last position.</p>`],
+    ["Score every vocabulary token", `<p>Logit = h · template (Chapter 82):</p>
+      <div class="chips">${VOCAB.map(([t, v], i) => `<span class="chip">${t.trim()} ${vec(v)} → ${c.logits[i].toFixed(2)}</span>`).join("")}</div>`],
+    ["Softmax", `<p>Temperature ${(+$("T").value).toFixed(2)}${+$("topk").value ? `, keeping only the top ${$("topk").value}` : ""} (Chapters 70, 89):</p>${bars(c.p)}`],
+    ["Choose", `<p>Greedy decoding picks <strong>“${VOCAB[c.order[0]][0].trim()}”</strong>.
+      ${sampled !== null ? `This time, sampling drew <strong>“${VOCAB[sampled][0].trim()}”</strong>.` : "Press “Sample 1 token” to draw at random from the distribution above."}
+      The chosen token is appended, and the whole journey repeats for the next word.</p>`]
+  ];
+  $("stages").innerHTML = S.map(([t, body], i) =>
+    `<section class="stage ${i < shown ? "" : "off"}" aria-hidden="${i >= shown}"><h3><span class="step">${i + 1}</span>${t}</h3>${i < shown ? body : ""}</section>`).join("");
+}
+
+$("next").onclick = () => { shown = Math.min(9, shown + 1); draw(); };
+$("all").onclick = () => { shown = 9; draw(); };
+$("sample").onclick = () => {
+  const p = compute().p; let r = Math.random(), i = 0;
+  while (i < p.length - 1 && (r -= p[i]) > 0) i++;
+  sampled = i; shown = 9; draw();
+};
+["T", "topk", "iop"].forEach(id => $(id).addEventListener("input", () => { sampled = null; draw(); }));
+draw();
+</script>
+</main>
+</body>
+</html>

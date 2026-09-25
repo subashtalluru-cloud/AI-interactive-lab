@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why depth helps: parity — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:272">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 37, 41 · Lab L41.1</span></p>
+</div></header>
+<main>
+<h1>Why depth helps: parity</h1>
+<p class="lede">Parity asks whether an odd number of inputs are on. Flip any single input and the answer flips. A deep network computes it as a tree of XORs; a network with one hidden layer must carve out every region separately.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="n">Number of inputs n <span class="val" id="nV"></span></label><input type="range" id="n" min="2" max="64" step="2" value="16"></div>
+<div class="control" id="bits"></div>
+</div></div>
+<figure><svg id="tree" viewBox="0 0 720 240" role="img" aria-labelledby="tT"><title id="tT">XOR tree computing parity</title></svg><figcaption>A tree of XOR blocks (each the three-neuron solver of Chapter 37). Filled nodes output 1. Click inputs to flip them.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">n = 16: 15 XOR blocks in log₂16 = 4 levels, about 45 neurons in roughly 8 layers. A single hidden layer faces 2¹⁶ = 65,536 patterns in which every positive pattern’s neighbours are all negative (Math Box 41.1).</p>
+<p class="note">Representable is not the same as learnable: gradient descent finds parity notoriously hard even for networks that could compute it. Depth pays off when the problem has nested structure — as images, sound and language do (Chapters 22, 37, 41).</p>
+<script>
+const $ = id => document.getElementById(id);
+let X = [];
+function draw() {
+  const n = +$("n").value; $("nV").textContent = n; while (X.length < n) X.push(Math.random() < .5 ? 1 : 0); X = X.slice(0, n);
+  $("bits").innerHTML = n <= 16 ? `<label>Inputs (click)</label><div style="display:flex;gap:.2rem;flex-wrap:wrap">${X.map((b, i) => `<button class="ghost" data-i="${i}" style="min-width:2rem;padding:.2rem">${b}</button>`).join("")}</div>` : `<p class="note">Showing the tree for 16 inputs is clearer; counts below use n = ${n}.</p>`;
+  $("bits").querySelectorAll("[data-i]").forEach(b => b.onclick = () => { X[+b.dataset.i] ^= 1; draw(); });
+  let levels = [X.slice(0, Math.min(n, 16))]; while (levels[levels.length - 1].length > 1) { const l = levels[levels.length - 1], nx = []; for (let i = 0; i < l.length; i += 2) nx.push(i + 1 < l.length ? l[i] ^ l[i + 1] : l[i]); levels.push(nx); }
+  const L = levels.length; let s = `<title id="tT">Tree</title>`;
+  const pos = (lv, i) => [40 + (i + 0.5) * 640 / levels[lv].length, 220 - lv * (200 / (L - 1 || 1))];
+  levels.forEach((l, lv) => l.forEach((v, i) => { if (lv) { const [x, y] = pos(lv, i); [2 * i, 2 * i + 1].filter(j => j < levels[lv - 1].length).forEach(j => { const [x2, y2] = pos(lv - 1, j); s += `<line x1="${x}" y1="${y}" x2="${x2}" y2="${y2}" stroke="#b8c0cf"/>`; }); } }));
+  levels.forEach((l, lv) => l.forEach((v, i) => { const [x, y] = pos(lv, i); s += `<circle cx="${x}" cy="${y}" r="${lv ? 10 : 8}" fill="${v ? "#1b4de4" : "#fff"}" stroke="#0f1626" stroke-width="1.5"/>`; }));
+  $("tree").innerHTML = s;
+  const par = X.reduce((a, b) => a ^ b, 0);
+  $("out").textContent = `parity of the inputs = ${par} (${X.filter(b => b).length} inputs on)\ndeep: ${n - 1} XOR blocks × 3 neurons = ${3 * (n - 1)} neurons, ${Math.ceil(Math.log2(n))} XOR levels (~${2 * Math.ceil(Math.log2(n))} layers)\nshallow: must separate 2^${n} = ${(2 ** n).toExponential(2)} patterns, ${(2 ** (n - 1)).toExponential(2)} of them positive`;
+}
+$("n").addEventListener("input", draw); draw();
+</script></main></body></html>

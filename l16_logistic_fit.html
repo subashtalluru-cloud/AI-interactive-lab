@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fitting a logistic curve to the ten eyes — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:237">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 16, 28 · Lab L16.1</span></p>
+</div></header>
+<main>
+<h1>Fitting a logistic curve to the ten eyes</h1>
+<p class="lede">Logistic regression turns a straight line z = w·IOP + b into a probability with the sigmoid. Cross-entropy measures how much probability the curve gave to what actually happened; gradient descent adjusts w and b to raise it.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="w">Slope w <span class="val" id="wV"></span></label><input type="range" id="w" min="-0.5" max="2" step="0.01" value="0.5"></div>
+    <div class="control"><label for="b">Intercept b <span class="val" id="bV"></span></label><input type="range" id="b" min="-40" max="5" step="0.1" value="-11"></div>
+    <div class="control" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end">
+      <button id="step">One gradient step</button><button id="fit" class="ghost">Fit (2,000 steps)</button><button id="book" class="ghost">Book’s candidate</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 300" role="img" aria-labelledby="pT"><title id="pT">Sigmoid curve over IOP with the ten eyes</title></svg>
+  <figcaption>Dots at 1 progressed, at 0 did not. The curve is p(progression | IOP). Each vertical bar shows the loss an eye contributes, −ln of the probability given to its actual outcome. Dashed: the 0.5 decision boundary, where z = 0.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s candidate w = 0.5, b = −11 puts the boundary at IOP 22 and gives probabilities 0.018 … 0.982, mean loss about 0.467 (Chapter 16).</p>
+<p class="note">The gradient is Σ(p − y)·x / n and Σ(p − y) / n — prediction minus truth, the same “error times input” pattern as linear regression and backpropagation (Chapters 15, 16, 31). The two overlapping eyes (IOP 19 progressed, 24 did not) keep the loss from reaching zero: no single threshold separates them, so the fitted curve stays gentle rather than becoming a step.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const X = [14, 16, 18, 19, 21, 22, 24, 25, 27, 30], Y = [0, 0, 0, 1, 0, 1, 0, 1, 1, 1];
+const sig = z => 1 / (1 + Math.exp(-z));
+let steps = 0;
+function grad(w, b) {
+  const xm = 21.6; let gw = 0, gb = 0, L = 0;
+  X.forEach((x, i) => { const p = sig(w * x + b); gw += (p - Y[i]) * x; gb += p - Y[i]; L += -(Y[i] ? Math.log(p) : Math.log(1 - p)); });
+  return [gw / 10, gb / 10, L / 10];
+}
+function stepOnce(k = 1) {
+  let w = +$("w").value, b = +$("b").value;
+  for (let i = 0; i < k; i++) { const [gw, gb] = grad(w, b); w -= 0.002 * gw; b -= 0.05 * gb; }   // small rate on w because IOP is large
+  $("w").value = w; $("b").value = b; steps += k; draw();
+}
+function draw() {
+  const w = +$("w").value, b = +$("b").value; $("wV").textContent = w.toFixed(3); $("bV").textContent = b.toFixed(2);
+  const PX = x => 60 + (x - 10) / 25 * 620, PY = p => 260 - p * 220;
+  let s = `<title id="pT">Logistic fit</title><rect x="60" y="30" width="620" height="230" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  [0, .5, 1].forEach(v => s += `<line x1="60" y1="${PY(v)}" x2="680" y2="${PY(v)}" stroke="#e3e7ef"/><text x="52" y="${PY(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  for (let x = 10; x <= 35; x += 5) s += `<text x="${PX(x)}" y="278" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${x}</text>`;
+  const xs = Array.from({ length: 251 }, (_, i) => 10 + i / 10);
+  s += `<polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${xs.map(x => `${PX(x)},${PY(sig(w * x + b))}`).join(" ")}"/>`;
+  if (w !== 0) { const bd = -b / w; if (bd > 10 && bd < 35) s += `<line x1="${PX(bd)}" y1="30" x2="${PX(bd)}" y2="260" stroke="#0f1626" stroke-dasharray="5 4"/>`; }
+  X.forEach((x, i) => {
+    const p = sig(w * x + b), l = -(Y[i] ? Math.log(p) : Math.log(1 - p));
+    s += `<line x1="${PX(x)}" y1="${PY(Y[i])}" x2="${PX(x)}" y2="${PY(p)}" stroke="#d6215a" stroke-width="${1 + Math.min(l, 3) * 2}" stroke-opacity="0.45"/>`;
+    s += `<circle cx="${PX(x)}" cy="${PY(Y[i])}" r="7" fill="${Y[i] ? "#d6215a" : "#1b4de4"}"/>`;
+  });
+  s += `<text x="370" y="296" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">IOP (mmHg)</text>`;
+  $("plot").innerHTML = s;
+  const [gw, gb, L] = grad(w, b), ps = X.map(x => sig(w * x + b));
+  $("out").textContent =
+    `probabilities: ${ps.map(p => p.toFixed(3)).join(", ")}\n` +
+    `mean cross-entropy = ${L.toFixed(3)}   (geometric-mean probability given to the actual outcome: ${Math.exp(-L).toFixed(2)})\n` +
+    `gradient ∂L/∂w = ${gw.toFixed(4)}, ∂L/∂b = ${gb.toFixed(4)}   boundary at IOP ${w !== 0 ? (-b / w).toFixed(1) : "—"}` + (steps ? `   (${steps} steps taken)` : "");
+}
+$("step").onclick = () => stepOnce(1);
+$("fit").onclick = () => stepOnce(2000);
+$("book").onclick = () => { $("w").value = 0.5; $("b").value = -11; steps = 0; draw(); };
+["w", "b"].forEach(id => $(id).addEventListener("input", () => { steps = 0; draw(); }));
+draw();
+</script>
+</main></body></html>

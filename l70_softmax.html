@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Softmax explorer — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:327">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 70 · Lab L70.1</span></p>
+</div></header>
+
+<main>
+<h1>Softmax explorer</h1>
+<p class="lede">Scores in, probabilities out. Move the logits and the temperature, and watch how a model's next-token distribution is formed — and how sharp or flat it becomes.</p>
+
+<div class="panel">
+  <div class="controls" id="logitControls"></div>
+  <div class="controls" style="margin-top:1rem">
+    <div class="control">
+      <label for="temp">Temperature <span class="val" id="tempVal">1.00</span></label>
+      <input type="range" id="temp" min="0.1" max="3" step="0.05" value="1">
+    </div>
+    <div class="control">
+      <label for="shift">Add the same number to every logit <span class="val" id="shiftVal">0.0</span></label>
+      <input type="range" id="shift" min="-50" max="50" step="1" value="0">
+    </div>
+    <div class="control" style="align-self:end">
+      <button id="reset" class="ghost">Reset to the book's example</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="chart" viewBox="0 0 720 300" role="img" aria-labelledby="chartTitle">
+    <title id="chartTitle">Bar chart of probabilities for each candidate next token</title>
+  </svg>
+  <figcaption id="cap"></figcaption>
+</figure>
+
+<table>
+  <thead><tr><th>Token</th><th>Logit</th><th>Logit ÷ T</th><th>e^(z/T)</th><th>Probability</th></tr></thead>
+  <tbody id="tbody"></tbody>
+</table>
+
+<p class="readout" id="entropy"></p>
+
+<h2>What to notice</h2>
+<p class="finding">Sliding <strong>“add the same number to every logit”</strong> changes nothing at all. Only the <em>differences</em> between logits matter, which is why real implementations subtract the largest logit before exponentiating — it keeps the arithmetic inside the range a computer can represent, without changing the answer.</p>
+<p class="note">Low temperature concentrates probability on the leading token: confident, repeatable, conventional text. High temperature flattens the distribution and gives unlikely tokens a real chance — more variety, and more errors. At T→0 the distribution becomes a hard maximum; at large T it approaches uniform.</p>
+<p>Entropy, shown above in nats, measures how uncertain the distribution is. The maximum for five options is ln 5 ≈ 1.61.</p>
+
+<script>
+const TOKENS = [" high", " elevated", " normal", " low", " banana"];
+const COLOURS = ["#1b4de4", "#0e8f6e", "#e0930b", "#6c3fd1", "#d6215a"];
+const DEFAULTS = [4.08, 3.58, 1.19, 0.18, -3.06];   // Chapter 89's worked example
+let logits = DEFAULTS.slice();
+
+const ctrl = document.getElementById("logitControls");
+TOKENS.forEach((tok, i) => {
+  const wrap = document.createElement("div");
+  wrap.className = "control";
+  wrap.innerHTML = `<label for="l${i}">Logit for “${tok.trim()}” <span class="val" id="lv${i}"></span></label>
+    <input type="range" id="l${i}" min="-6" max="8" step="0.01">`;
+  ctrl.appendChild(wrap);
+});
+
+function softmax(z, T) {
+  const m = Math.max(...z);
+  const e = z.map(v => Math.exp((v - m) / T));
+  const s = e.reduce((a, b) => a + b, 0);
+  return { p: e.map(v => v / s), e };
+}
+
+function draw() {
+  const T = +document.getElementById("temp").value;
+  const shift = +document.getElementById("shift").value;
+  const z = logits.map(v => v + shift);
+  const { p } = softmax(z, T);
+  const eRaw = z.map(v => Math.exp((v - Math.max(...z)) / T));
+
+  document.getElementById("tempVal").textContent = T.toFixed(2);
+  document.getElementById("shiftVal").textContent = shift.toFixed(1);
+  TOKENS.forEach((_, i) => {
+    document.getElementById("lv" + i).textContent = z[i].toFixed(2);
+    document.getElementById("l" + i).value = logits[i];
+  });
+
+  // bars
+  const svg = document.getElementById("chart");
+  const W = 720, H = 300, pad = 40, bw = (W - pad * 2) / TOKENS.length;
+  let s = `<title id="chartTitle">Probabilities for each candidate next token</title>`;
+  s += `<line x1="${pad}" y1="${H - 40}" x2="${W - pad}" y2="${H - 40}" stroke="#d7dce6"/>`;
+  p.forEach((prob, i) => {
+    const h = prob * (H - 90);
+    const x = pad + i * bw + bw * 0.12, w = bw * 0.76, y = H - 40 - h;
+    s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="${COLOURS[i]}"/>`;
+    s += `<text x="${x + w / 2}" y="${y - 7}" text-anchor="middle" font-family="ui-sans-serif,system-ui"
+           font-size="13" font-weight="600" fill="#0f1626">${(prob * 100).toFixed(1)}%</text>`;
+    s += `<text x="${x + w / 2}" y="${H - 18}" text-anchor="middle" font-family="ui-sans-serif,system-ui"
+           font-size="13" fill="#4a5468">${TOKENS[i].trim()}</text>`;
+  });
+  svg.innerHTML = s;
+
+  // table
+  document.getElementById("tbody").innerHTML = TOKENS.map((tok, i) =>
+    `<tr><td>${tok.trim()}</td><td>${z[i].toFixed(2)}</td><td>${(z[i] / T).toFixed(2)}</td>
+     <td>${eRaw[i].toFixed(3)}</td><td>${p[i].toFixed(3)}</td></tr>`).join("");
+
+  const ent = -p.reduce((a, v) => a + (v > 0 ? v * Math.log(v) : 0), 0);
+  const top = TOKENS[p.indexOf(Math.max(...p))].trim();
+  document.getElementById("entropy").textContent =
+    `entropy = ${ent.toFixed(3)} nats   (maximum for 5 options = ${Math.log(5).toFixed(3)})   ·   greedy choice = “${top}”   ·   perplexity = ${Math.exp(ent).toFixed(2)}`;
+  document.getElementById("cap").textContent =
+    `Next-token probabilities at temperature ${T.toFixed(2)}. Exponentials are computed after subtracting the largest logit, exactly as a real implementation does.`;
+}
+
+TOKENS.forEach((_, i) => {
+  document.getElementById("l" + i).addEventListener("input", e => {
+    logits[i] = +e.target.value; draw();
+  });
+});
+["temp", "shift"].forEach(id => document.getElementById(id).addEventListener("input", draw));
+document.getElementById("reset").addEventListener("click", () => {
+  logits = DEFAULTS.slice();
+  document.getElementById("temp").value = 1;
+  document.getElementById("shift").value = 0;
+  draw();
+});
+draw();
+</script>
+</main>
+</body>
+</html>

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gradients across time — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:293">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 50, 53, 54 · Lab L54.1</span></p>
+</div></header>
+
+<main>
+<h1>Why gradients vanish or explode across time</h1>
+<p class="lede">A one-number recurrent network: h_t = tanh(w_h · h_{t−1} + x_t), with a single event x₁ = 1 at step 1. Backpropagation multiplies one factor per step. Watch what repeated multiplication does to the signal that says “step 1 mattered”.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="w">Recurrent weight w_h <span class="val" id="wV"></span></label>
+      <input type="range" id="w" min="0.1" max="2" step="0.05" value="0.5"></div>
+    <div class="control"><label for="T">Sequence length <span class="val" id="TV"></span></label>
+      <input type="range" id="T" min="5" max="60" step="1" value="50"></div>
+    <div class="control"><label><input type="checkbox" id="lin"> Remove the tanh (linear recurrence)</label></div>
+    <div class="control"><label><input type="checkbox" id="res"> Add a residual path (h_t = h_{t−1} + …)</label></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 320" role="img" aria-labelledby="pT">
+    <title id="pT">Gradient magnitude against distance, log scale</title>
+  </svg>
+  <figcaption>Log scale: each gridline is ten times the one below. A constant factor per step becomes a straight line — sloping down (vanishing) or up (exploding). Grey band: the range where learning signals remain usable.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">At w_h = 0.5 the signal from step 1 falls to about 5% after four steps and to around 10⁻¹⁵ after fifty: the network is told nothing about long-range causes, so it never learns them.</p>
+<p class="note">Push w_h above 1 with the tanh removed and the line climbs instead — an explosion: 49 backward factors of 1.5 give about 4 × 10⁸. With the tanh on, large weights saturate the states, the tanh slopes fall toward zero, and the gradient vanishes anyway: saturation is another route to the same failure.</p>
+<p class="note">Tick “residual path”. Each factor becomes 1 + (small term), so the product stays of order one (about 3 at w_h = 0.5 over fifty steps) instead of collapsing to 10⁻¹⁵. This is the same idea as the LSTM’s cell state (Chapter 55), the ResNet skip (Chapter 50) and the transformer’s residual stream (Chapter 73).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function run(w, T, lin, res) {
+  const h = [], f = [];
+  let prev = 0;
+  for (let t = 1; t <= T; t++) {
+    const x = t === 1 ? 1 : 0, pre = w * prev + x;
+    const act = lin ? pre : Math.tanh(pre);
+    const cur = res ? prev + act : act;
+    if (t > 1) {
+      const slope = lin ? 1 : 1 - Math.tanh(pre) ** 2;
+      f.push((res ? 1 : 0) + w * slope);
+    }
+    h.push(cur); prev = cur;
+  }
+  const g = [1]; f.forEach(v => g.push(g[g.length - 1] * v));
+  return { h, f, g };
+}
+function draw() {
+  const w = +$("w").value, T = +$("T").value, lin = $("lin").checked, res = $("res").checked;
+  $("wV").textContent = w.toFixed(2); $("TV").textContent = T;
+  const R = run(w, T, lin, res);
+  const lg = v => Math.log10(Math.max(Math.abs(v), 1e-30));
+  const lo = -20, hi = 12;
+  const X = k => 60 + (k / (T - 1)) * 620, Y = v => 290 - ((Math.max(lo, Math.min(hi, lg(v))) - lo) / (hi - lo)) * 270;
+  let s = `<title id="pT">Gradient against distance</title><rect x="60" y="20" width="620" height="270" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  s += `<rect x="60" y="${Y(1e2)}" width="620" height="${Y(1e-3) - Y(1e2)}" fill="#0e8f6e" fill-opacity="0.08"/>`;
+  for (let e = lo; e <= hi; e += 4) s += `<line x1="60" y1="${Y(10 ** e)}" x2="680" y2="${Y(10 ** e)}" stroke="#e3e7ef"/><text x="54" y="${Y(10 ** e) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">10^${e}</text>`;
+  const col = R.g[R.g.length - 1] > 1.5 ? "#d6215a" : R.g[R.g.length - 1] < 1e-3 ? "#1b4de4" : "#0e8f6e";
+  s += `<polyline fill="none" stroke="${col}" stroke-width="3" points="${R.g.map((v, k) => `${X(k)},${Y(v)}`).join(" ")}"/>`;
+  [0, Math.floor((T - 1) / 2), T - 1].forEach(k => s += `<text x="${X(k)}" y="306" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${k}</text>`);
+  s += `<text x="370" y="318" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">steps back from h_T to h₁</text>`;
+  $("plot").innerHTML = s;
+  const fmt = v => Math.abs(v) >= 1e4 || Math.abs(v) < 1e-3 ? v.toExponential(1) : v.toFixed(3);
+  $("out").textContent =
+    `hidden states h₁…h₅ = ${R.h.slice(0, 5).map(v => v.toFixed(3)).join(", ")}\n` +
+    `per-step factors ∂h_t/∂h_{t−1} = ${R.f.slice(0, 4).map(v => v.toFixed(3)).join(", ")} …\n` +
+    `∂h₅/∂h₁ = ${fmt(R.g[Math.min(4, R.g.length - 1)])}      ∂h_${T}/∂h₁ = ${fmt(R.g[R.g.length - 1])}`;
+}
+["w", "T"].forEach(id => $(id).addEventListener("input", draw));
+["lin", "res"].forEach(id => $(id).addEventListener("change", draw));
+draw();
+</script>
+</main>
+</body>
+</html>

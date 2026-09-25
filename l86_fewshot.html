@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Few-shot prompting — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:353">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 86, 137 · Lab L86.1</span></p>
+</div></header>
+<main>
+<h1>Few-shot prompting: shifting the distribution without training</h1>
+<p class="lede">Examples in the prompt change nothing in the model’s weights. They change the context — and so the next-token distribution. Add examples one at a time and watch the intended continuation take over.</p>
+<p class="note">Probabilities are illustrative, following Math Box 86.1; each example is modelled as adding a fixed boost to the log-odds of the pattern it demonstrates.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="k">Examples in the prompt <span class="val" id="kV"></span></label><input type="range" id="k" min="0" max="5" step="1" value="0"></div>
+<div class="control"><label for="b">Log-odds boost per consistent example <span class="val" id="bV"></span></label><input type="range" id="b" min="0" max="2" step="0.05" value="1.6"></div>
+</div></div>
+<p id="prompt" style="font-family:var(--mono);font-size:.9rem;background:var(--bench);padding:.7rem;border-radius:8px;white-space:pre-wrap"></p>
+<figure><svg id="plot" viewBox="0 0 720 200" role="img" aria-labelledby="pT"><title id="pT">Next-token distribution</title></svg></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Zero-shot: “ intraocular” 0.35. With two examples of the Abbreviation → Expansion pattern: about 0.93 (Math Box 86.1).</p>
+<p class="note">The examples also teach format, length and label balance — including biases you did not intend (Chapter 137). This is in-context learning: a change of input, not of parameters (Chapters 86, 137).</p>
+<script>
+const $ = id => document.getElementById(id);
+const EX = ["Abbreviation: VA → Expansion: visual acuity", "Abbreviation: CDR → Expansion: cup-to-disc ratio", "Abbreviation: RAPD → Expansion: relative afferent pupillary defect", "Abbreviation: OCT → Expansion: optical coherence tomography", "Abbreviation: DR → Expansion: diabetic retinopathy"];
+const T = [[" intraocular", .35], [" is", .20], [" IOP", .10], [" (", .08], ["other", .27]];
+function draw() {
+  const k = +$("k").value, b = +$("b").value; $("kV").textContent = k; $("bV").textContent = b.toFixed(2);
+  const lo = T.map(([t, p], i) => Math.log(p) + (i === 0 ? k * b : 0)), m = Math.max(...lo), e = lo.map(v => Math.exp(v - m)), s = e.reduce((a, c) => a + c), q = e.map(v => v / s);
+  $("prompt").textContent = EX.slice(0, k).join("\n") + (k ? "\n" : "") + `Abbreviation: IOP →${k ? " Expansion:" : ""}`;
+  let g = `<title id="pT">Distribution</title>`; T.forEach(([t], i) => g += `<text x="110" y="${32 + i * 34}" text-anchor="end" font-family="ui-monospace,monospace" font-size="12">${t}</text><rect x="120" y="${14 + i * 34}" width="${q[i] * 520}" height="26" fill="${i ? "#9aa3b5" : "#0e8f6e"}"/><text x="${126 + q[i] * 520}" y="${32 + i * 34}" font-family="ui-monospace,monospace" font-size="11">${q[i].toFixed(2)}</text>`);
+  $("plot").innerHTML = g;
+  $("out").textContent = `P(" intraocular") with ${k} example(s): ${q[0].toFixed(2)}  (zero-shot 0.35)`;
+}
+["k", "b"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why generation is limited by memory — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:357">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 88, 100, 105 · Lab L88.1</span></p>
+</div></header>
+<main>
+<h1>Why generating text is limited by memory, not arithmetic</h1>
+<p class="lede">To produce each new token, the accelerator must read every model weight from memory — but does only about one multiply-add per weight read. Memory bandwidth, not arithmetic, sets the speed limit for a single conversation. Batching many users together changes the picture.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="N">Model size (billions of parameters) <span class="val" id="NV"></span></label><input type="range" id="N" min="1" max="200" step="0.01" value="6.74"></div>
+    <div class="control"><label for="bits">Bits per weight <span class="val" id="bitsV"></span></label><select id="bits"><option>16</option><option>8</option><option>4</option></select></div>
+    <div class="control"><label for="bw">Memory bandwidth (TB/s) <span class="val" id="bwV"></span></label><input type="range" id="bw" min="0.1" max="8" step="0.1" value="2"></div>
+    <div class="control"><label for="fl">Arithmetic (10¹⁴ FLOP/s) <span class="val" id="flV"></span></label><input type="range" id="fl" min="0.1" max="20" step="0.1" value="5"></div>
+    <div class="control"><label for="batch">Concurrent users (batch) <span class="val" id="batchV"></span></label><input type="range" id="batch" min="1" max="512" step="1" value="1"></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 280" role="img" aria-labelledby="pT"><title id="pT">Total tokens per second against batch size, showing the memory and compute limits</title></svg>
+  <figcaption>Log–log. Cobalt: memory limit (weights read once per step, shared across the batch). Crimson: compute limit. The achievable throughput (green) is the lower of the two. The dot is your batch size. KV-cache reads are ignored here, which flatters large batches.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">7B in 16 bits is 13.5 GB; at 2 TB/s one read takes about 6.7 ms, a ceiling of about 150 tokens per second for one user, even though the arithmetic could allow thousands (Math Box 88.1).</p>
+<p class="note">Quantize to 4 bits and single-user speed roughly quadruples. Add users and each weight read serves them all, so total throughput rises almost in proportion — until the green line hits the compute limit. That is why providers batch, why local models are quantized, and why prefill (all prompt tokens at once) is compute-bound while decoding is memory-bound (Chapters 88, 100, 105).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const N = +$("N").value * 1e9, bits = +$("bits").value, bw = +$("bw").value * 1e12, fl = +$("fl").value * 1e14, B = +$("batch").value;
+  $("NV").textContent = $("N").value; $("bitsV").textContent = bits; $("bwV").textContent = (+$("bw").value).toFixed(1); $("flV").textContent = (+$("fl").value).toFixed(1); $("batchV").textContent = B;
+  const bytes = N * bits / 8, stepMem = bytes / bw, memTok = b => b / stepMem, compTok = fl / (2 * N), tp = b => Math.min(memTok(b), compTok);
+  const lo = 0, hi = 6, X = b => 60 + Math.log10(b) / Math.log10(512) * 620, Y = v => 250 - (Math.log10(Math.max(v, 1)) - lo) / (hi - lo) * 220;
+  let s = `<title id="pT">Throughput</title><rect x="60" y="30" width="620" height="220" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  for (let e = 0; e <= 6; e++) s += `<line x1="60" y1="${Y(10 ** e)}" x2="680" y2="${Y(10 ** e)}" stroke="#e3e7ef"/><text x="52" y="${Y(10 ** e) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">${(10 ** e).toLocaleString()}</text>`;
+  [1, 4, 16, 64, 256, 512].forEach(b => s += `<text x="${X(b)}" y="268" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${b}</text>`);
+  const bs = Array.from({ length: 200 }, (_, i) => 512 ** (i / 199));
+  s += `<polyline fill="none" stroke="#1b4de4" stroke-width="2" stroke-dasharray="6 4" points="${bs.map(b => `${X(b)},${Y(memTok(b))}`).join(" ")}"/>`;
+  s += `<line x1="60" y1="${Y(compTok)}" x2="680" y2="${Y(compTok)}" stroke="#d6215a" stroke-width="2" stroke-dasharray="6 4"/>`;
+  s += `<polyline fill="none" stroke="#0e8f6e" stroke-width="3.5" points="${bs.map(b => `${X(b)},${Y(tp(b))}`).join(" ")}"/>`;
+  s += `<circle cx="${X(B)}" cy="${Y(tp(B))}" r="7" fill="#0f1626"/>`;
+  $("plot").innerHTML = s;
+  const knee = Math.ceil(compTok * stepMem);
+  $("out").textContent =
+    `weights: ${(N / 1e9).toFixed(2)}e9 × ${bits / 8} bytes = ${(bytes / 1e9).toFixed(1)} GB;  one read at ${(bw / 1e12).toFixed(1)} TB/s = ${(stepMem * 1e3).toFixed(1)} ms per step\n` +
+    `single user: memory limit ${memTok(1).toFixed(0)} tokens/s   vs   arithmetic limit ${compTok.toLocaleString(undefined, { maximumFractionDigits: 0 })} tokens/s\n` +
+    `batch ${B}: total ≈ ${tp(B).toLocaleString(undefined, { maximumFractionDigits: 0 })} tokens/s (${(tp(B) / B).toFixed(0)} per user) — ${memTok(B) < compTok ? "still memory-bound" : "now compute-bound"};  compute becomes the limit at a batch of about ${knee.toLocaleString()}`;
+}
+["N", "bw", "fl", "batch"].forEach(id => $(id).addEventListener("input", draw)); $("bits").addEventListener("change", draw);
+draw();
+</script>
+</main></body></html>

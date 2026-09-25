@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Correlation and the regression slope — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:235">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 15, 27 · Lab L27.2</span></p>
+</div></header>
+<main>
+<h1>Correlation, covariance and the regression slope</h1>
+<p class="lede">Drag the points. Covariance asks whether x and y tend to sit above (or below) their means together; correlation rescales that to −1…+1; and the least-squares slope is simply covariance divided by the variance of x.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end">
+      <button class="ghost" data-p="book">Book’s four points</button><button class="ghost" data-p="u">U-shape</button><button class="ghost" data-p="out">Add an outlier</button><button class="ghost" data-p="cloud">Random cloud</button>
+    </div>
+    <div class="control"><label><input type="checkbox" id="rects" checked> Show the (x − x̄)(y − ȳ) rectangles</label></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 600 440" role="img" aria-labelledby="pT" style="max-width:600px;display:block;margin:auto;touch-action:none"><title id="pT">Scatter plot with draggable points</title></svg>
+  <figcaption>Dashed lines: the means. Each point’s rectangle to the mean-crossing is its product of deviations — blue when positive (same side for both), crimson when negative. Black line: least-squares fit.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">The book’s data (1,2), (2,3), (3,5), (4,6): products 3, 0.5, 0.5, 3; Cov = 1.75; Var(x) = 1.25; slope 1.75/1.25 = 1.4; r ≈ 0.99 (Math Box 27.1).</p>
+<p class="note">The U-shape has a perfect relationship and r ≈ 0: correlation measures only straight-line association. One outlier can manufacture or destroy a correlation. And none of it says which way causation runs, or whether it runs at all.</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const SETS = {
+  book: [[1, 2], [2, 3], [3, 5], [4, 6]],
+  u: [[-3, 9], [-2, 4], [-1, 1], [0, 0], [1, 1], [2, 4], [3, 9]].map(([x, y]) => [x + 4, y * 0.8 + 0.5]),
+  cloud: Array.from({ length: 20 }, () => [Math.random() * 8 + 0.5, Math.random() * 8 + 0.5])
+};
+let P = SETS.book.map(p => p.slice()), drag = -1;
+const X = v => 50 + v / 9 * 520, Y = v => 400 - v / 9 * 370, IX = px => (px - 50) / 520 * 9, IY = py => (400 - py) / 370 * 9;
+function stats() {
+  const n = P.length, mx = P.reduce((a, p) => a + p[0], 0) / n, my = P.reduce((a, p) => a + p[1], 0) / n;
+  const cov = P.reduce((a, p) => a + (p[0] - mx) * (p[1] - my), 0) / n, vx = P.reduce((a, p) => a + (p[0] - mx) ** 2, 0) / n, vy = P.reduce((a, p) => a + (p[1] - my) ** 2, 0) / n;
+  return { n, mx, my, cov, vx, vy, r: cov / Math.sqrt(vx * vy || 1), w: cov / (vx || 1) };
+}
+function draw() {
+  const S = stats();
+  let s = `<title id="pT">Scatter</title><rect x="50" y="30" width="520" height="370" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  for (let v = 0; v <= 9; v++) s += `<text x="${X(v)}" y="418" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text><text x="42" y="${Y(v) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`;
+  if ($("rects").checked) P.forEach(p => {
+    const pr = (p[0] - S.mx) * (p[1] - S.my);
+    s += `<rect x="${Math.min(X(p[0]), X(S.mx))}" y="${Math.min(Y(p[1]), Y(S.my))}" width="${Math.abs(X(p[0]) - X(S.mx))}" height="${Math.abs(Y(p[1]) - Y(S.my))}" fill="${pr >= 0 ? "#1b4de4" : "#d6215a"}" fill-opacity="0.12" stroke="${pr >= 0 ? "#1b4de4" : "#d6215a"}" stroke-opacity="0.4"/>`;
+  });
+  s += `<line x1="${X(S.mx)}" y1="30" x2="${X(S.mx)}" y2="400" stroke="#4a5468" stroke-dasharray="4 4"/><line x1="50" y1="${Y(S.my)}" x2="570" y2="${Y(S.my)}" stroke="#4a5468" stroke-dasharray="4 4"/>`;
+  const b = S.my - S.w * S.mx, x0 = 0, x1 = 9;
+  s += `<line x1="${X(x0)}" y1="${Y(b + S.w * x0)}" x2="${X(x1)}" y2="${Y(b + S.w * x1)}" stroke="#0f1626" stroke-width="2.5"/>`;
+  P.forEach((p, i) => s += `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="9" fill="#e0930b" stroke="#0f1626" stroke-width="1.5" data-i="${i}" style="cursor:grab"/>`);
+  $("plot").innerHTML = `<defs><clipPath id="cp"><rect x="50" y="30" width="520" height="370"/></clipPath></defs>` + s.replace(`<line x1="${X(x0)}"`, `<g clip-path="url(#cp)"><line x1="${X(x0)}"`).replace(`stroke-width="2.5"/>`, `stroke-width="2.5"/></g>`);
+  $("out").textContent =
+    `n = ${S.n};  x̄ = ${S.mx.toFixed(2)}, ȳ = ${S.my.toFixed(2)}\n` +
+    `Cov(x, y) = ${S.cov.toFixed(3)}   Var(x) = ${S.vx.toFixed(3)}   Var(y) = ${S.vy.toFixed(3)}\n` +
+    `r = Cov / (sd(x)·sd(y)) = ${S.r.toFixed(3)}     slope w = Cov / Var(x) = ${S.w.toFixed(3)}     intercept b = ${b.toFixed(3)}`;
+}
+const svg = $("plot");
+function pt(e) { const q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY; const r = q.matrixTransform(svg.getScreenCTM().inverse()); return [Math.max(0, Math.min(9, IX(r.x))), Math.max(0, Math.min(9, IY(r.y)))]; }
+svg.addEventListener("pointerdown", e => {
+  const q = pt(e); let best = -1, bd = 0.5;
+  P.forEach((p, i) => { const d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < bd) { bd = d; best = i; } });
+  drag = best; if (drag >= 0) svg.setPointerCapture(e.pointerId);
+});
+svg.addEventListener("pointermove", e => { if (drag < 0) return; P[drag] = pt(e); draw(); });
+svg.addEventListener("pointerup", () => drag = -1);
+document.querySelectorAll("[data-p]").forEach(b => b.onclick = () => {
+  const k = b.dataset.p;
+  if (k === "out") P.push([8.5, 0.5]);
+  else { if (k === "cloud") SETS.cloud = Array.from({ length: 20 }, () => [Math.random() * 8 + 0.5, Math.random() * 8 + 0.5]); P = SETS[k].map(p => p.slice()); }
+  draw();
+});
+$("rects").addEventListener("change", draw);
+draw();
+</script>
+</main></body></html>

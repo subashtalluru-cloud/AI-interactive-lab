@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solving XOR with a hidden layer — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:267">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 34–37 · Lab L37.1</span></p>
+</div></header>
+<main>
+<h1>Solving XOR with a hidden layer</h1>
+<p class="lede">No single straight line separates XOR’s ones from its zeros. Two hidden ReLU units bend the input space so that a straight line <em>can</em> — and three neurons suffice. Edit every weight and watch the table and the picture.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="a1">h₁ weights (a₁, a₂) and bias c₁</label><div style="display:flex;gap:.3rem"><input id="a1" type="number" step="0.1" value="1" style="width:4rem"><input id="a2" type="number" step="0.1" value="1" style="width:4rem"><input id="c1" type="number" step="0.1" value="0" style="width:4rem"></div></div>
+    <div class="control"><label for="b1">h₂ weights (b₁, b₂) and bias c₂</label><div style="display:flex;gap:.3rem"><input id="b1" type="number" step="0.1" value="1" style="width:4rem"><input id="b2" type="number" step="0.1" value="1" style="width:4rem"><input id="c2" type="number" step="0.1" value="-1" style="width:4rem"></div></div>
+    <div class="control"><label for="o1">Output weights (v₁, v₂) and bias d</label><div style="display:flex;gap:.3rem"><input id="o1" type="number" step="0.1" value="1" style="width:4rem"><input id="o2" type="number" step="0.1" value="-2" style="width:4rem"><input id="d" type="number" step="0.1" value="0" style="width:4rem"></div></div>
+    <div class="control"><label for="act">Hidden activation</label><select id="act"><option value="relu">ReLU</option><option value="none">none (linear)</option></select></div>
+    <div class="control" style="align-self:end"><button id="book" class="ghost">Book’s weights</button></div>
+  </div>
+</div>
+
+<div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr))">
+<figure style="margin:0"><canvas id="cv" width="240" height="240" style="width:100%;border-radius:8px" aria-label="Network output over the input square"></canvas><figcaption>Output ŷ over the input square (cobalt = 1, white = 0, crimson = negative). Dots are the four XOR cases.</figcaption></figure>
+<figure style="margin:0"><svg id="hid" viewBox="-0.5 -0.5 3 3" role="img" aria-labelledby="hT" style="width:100%;background:#f3f5f9;border-radius:8px"><title id="hT">The four inputs in hidden space (h₁, h₂)</title></svg><figcaption>The same four points in hidden space (h₁, h₂). Here a straight line can separate them: the dashed line is where the output equals 0.5.</figcaption></figure>
+</div>
+<table id="tab" style="font-family:var(--mono);font-size:.9rem;margin-top:.8rem;border-collapse:collapse"></table>
+
+<h2>What to notice</h2>
+<p class="finding">With the book’s weights every row is exact: (0,0)→0, (0,1)→1, (1,0)→1, (1,1)→0. h₁ counts the inputs that are on; h₂ fires only when both are — an AND detector (Math Box 37.1).</p>
+<p class="note">Switch the hidden activation to “none”. The network collapses to one linear function of x — a stack of linear layers is still linear — and XOR becomes impossible whatever weights you choose. The kink in the ReLU is what makes the hidden space different from the input space, and depth useful (Chapters 34–37).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const ids = ["a1", "a2", "c1", "b1", "b2", "c2", "o1", "o2", "d"];
+const W = () => Object.fromEntries(ids.map(i => [i, +$(i).value]));
+function net(x1, x2, w) {
+  const f = $("act").value === "relu" ? z => Math.max(0, z) : z => z;
+  const h1 = f(w.a1 * x1 + w.a2 * x2 + w.c1), h2 = f(w.b1 * x1 + w.b2 * x2 + w.c2);
+  return [h1, h2, w.o1 * h1 + w.o2 * h2 + w.d];
+}
+function draw() {
+  const w = W(), cv = $("cv"), g = cv.getContext("2d"), N = 240, img = g.createImageData(N, N);
+  for (let py = 0; py < N; py++) for (let px = 0; px < N; px++) {
+    const x1 = -0.25 + px / N * 1.5, x2 = 1.25 - py / N * 1.5, y = net(x1, x2, w)[2], k = (py * N + px) * 4;
+    if (y >= 0) { const t = Math.min(1, y); img.data[k] = 255 - t * 228; img.data[k + 1] = 255 - t * 178; img.data[k + 2] = 255 - t * 27; }
+    else { const t = Math.min(1, -y); img.data[k] = 255 - t * 41; img.data[k + 1] = 255 - t * 222; img.data[k + 2] = 255 - t * 165; }
+    img.data[k + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const P = (x1, x2) => [(x1 + .25) / 1.5 * N, (1.25 - x2) / 1.5 * N];
+  const X = [[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 0]];
+  X.forEach(([a, b, t]) => { const [x, y] = P(a, b); g.beginPath(); g.arc(x, y, 9, 0, 7); g.fillStyle = t ? "#1b4de4" : "#fff"; g.fill(); g.lineWidth = 2.5; g.strokeStyle = "#0f1626"; g.stroke(); });
+  let s = `<title id="hT">Hidden space</title><line x1="-0.5" y1="2" x2="2.5" y2="2" stroke="#b8c0cf" stroke-width="0.02"/><line x1="0" y1="-0.5" x2="0" y2="2.5" stroke="#b8c0cf" stroke-width="0.02"/>`;
+  const HX = h => h, HY = h => 2 - h;
+  if (Math.abs(w.o2) > 1e-6) { const yAt = h1 => (0.5 - w.d - w.o1 * h1) / w.o2; s += `<line x1="-0.5" y1="${HY(yAt(-0.5))}" x2="2.5" y2="${HY(yAt(2.5))}" stroke="#0f1626" stroke-width="0.03" stroke-dasharray="0.08 0.06"/>`; }
+  X.forEach(([a, b, t]) => { const [h1, h2] = net(a, b, w); s += `<circle cx="${HX(Math.max(-.4, Math.min(2.4, h1)))}" cy="${HY(Math.max(-.4, Math.min(2.4, h2)))}" r="0.09" fill="${t ? "#1b4de4" : "#fff"}" stroke="#0f1626" stroke-width="0.03"/><text x="${HX(h1) + 0.12}" y="${HY(h2) + 0.05}" font-size="0.14" font-family="ui-sans-serif,system-ui" fill="#0f1626">(${a},${b})</text>`; });
+  $("hid").innerHTML = s;
+  $("tab").innerHTML = `<tr><th>x₁, x₂</th><th>h₁</th><th>h₂</th><th>ŷ</th><th>XOR</th><th></th></tr>` + X.map(([a, b, t]) => { const [h1, h2, y] = net(a, b, w); const ok = Math.abs(y - t) < 0.5; return `<tr><td>${a}, ${b}</td><td>${h1.toFixed(2)}</td><td>${h2.toFixed(2)}</td><td><strong>${y.toFixed(2)}</strong></td><td>${t}</td><td style="color:${ok ? "#0e8f6e" : "#d6215a"}">${ok ? "✓" : "✗"}</td></tr>`; }).join("");
+  [...$("tab").querySelectorAll("td,th")].forEach(c => c.style.padding = ".25rem .7rem");
+}
+ids.forEach(i => $(i).addEventListener("input", draw)); $("act").addEventListener("change", draw);
+$("book").onclick = () => { [1, 1, 0, 1, 1, -1, 1, -2, 0].forEach((v, i) => $(ids[i]).value = v); $("act").value = "relu"; draw(); };
+draw();
+</script>
+</main></body></html>

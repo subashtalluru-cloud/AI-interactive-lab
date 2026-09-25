@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supervised fine-tuning: only the answer is graded — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:0">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 90, 91 · Lab L91.1</span></p>
+</div></header>
+<main>
+<h1>Supervised fine-tuning: only the answer is graded</h1>
+<p class="lede">In instruction tuning, the model sees prompt and response together, but the loss counts only the response tokens. It learns how to answer, not how to write questions.</p>
+<div class="panel"><div class="controls" id="probs"></div>
+<div class="controls"><div class="control"><label><input type="checkbox" id="all"> Count prompt tokens too (no masking)</label></div></div></div>
+<table id="tab" style="font-family:var(--mono);font-size:.9rem;border-collapse:collapse"></table>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">Response tokens with probabilities 0.40, 0.70, 0.90, 0.80 give losses 0.916, 0.357, 0.105, 0.223 — a mean of about 0.40 nats. The prompt’s “IOP” at 0.01 (loss 4.61) is not counted (Math Box 91.1).</p>
+<p class="note">Tick “count prompt tokens” and the loss is dominated by unpredictable prompt words the model should never be asked to produce. Masking focuses a small fine-tuning budget on behaviour (Chapters 91, 98).</p>
+<script>
+const $ = id => document.getElementById(id);
+const T = [["IOP", "prompt", 0.01], ["in", "prompt", 0.30], ["one", "prompt", 0.20], ["line.", "prompt", 0.50], ["Pressure", "response", 0.40], ["inside", "response", 0.70], ["the", "response", 0.90], ["eye.", "response", 0.80]];
+function build() { $("probs").innerHTML = T.map(([w, r, p], i) => `<div class="control"><label for="p${i}">P(“${w}”) <span class="val" id="p${i}V">${p}</span></label><input type="range" id="p${i}" min="0.01" max="0.99" step="0.01" value="${p}"></div>`).join(""); T.forEach((t, i) => $("p" + i).addEventListener("input", e => { t[2] = +e.target.value; $("p" + i + "V").textContent = t[2].toFixed(2); draw(); })); }
+function draw() {
+  const all = $("all").checked; let rows = "", s = 0, n = 0;
+  T.forEach(([w, r, p]) => { const l = -Math.log(p), c = all || r === "response"; if (c) { s += l; n++; } rows += `<tr style="${c ? "" : "color:#9aa3b5"}"><td>${w}</td><td>${r}</td><td>${p.toFixed(2)}</td><td>${l.toFixed(3)}</td><td>${c ? "yes" : "no"}</td></tr>`; });
+  $("tab").innerHTML = `<tr><th>token</th><th>region</th><th>P</th><th>−ln P</th><th>counted</th></tr>` + rows;
+  [...$("tab").querySelectorAll("td,th")].forEach(c => { c.style.padding = ".3rem .7rem"; c.style.borderBottom = "1px solid #d7dce6"; });
+  $("out").textContent = `mean loss over ${n} counted tokens: ${(s / n).toFixed(3)} nats`;
+}
+$("all").addEventListener("change", draw); build(); draw();
+</script></main></body></html>

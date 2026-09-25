@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>An image is a grid of numbers — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:283">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 44, 45 · Lab L44.1</span></p>
+</div></header>
+<main>
+<h1>An image is a grid of numbers</h1>
+<p class="lede">To a network, a fundus photograph is three grids of brightness values, one per colour. Zoom in until the pixels show, read their numbers, and count what a fully connected layer would face.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="z">Zoom (pixels shown per side) <span class="val" id="zV"></span></label><input type="range" id="z" min="4" max="64" step="4" value="8"></div>
+<div class="control"><label for="ch">Channel</label><select id="ch"><option value="0">red</option><option value="1">green</option><option value="2">blue</option></select></div>
+<div class="control"><label for="side">Image side for the count (px) <span class="val" id="sideV"></span></label><input type="range" id="side" min="32" max="4096" step="32" value="512"></div>
+</div></div>
+<div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))">
+<figure style="margin:0"><canvas id="full" width="256" height="256" style="width:100%;border-radius:8px;cursor:crosshair" aria-label="Drawn fundus; click to choose where to zoom"></canvas><figcaption>Click to choose the zoom window.</figcaption></figure>
+<figure style="margin:0"><canvas id="zoom" width="256" height="256" style="width:100%;border-radius:8px;image-rendering:pixelated" aria-label="Zoomed pixels with values"></canvas><figcaption>Zoomed: each square is one pixel; numbers are the chosen channel (0–255).</figcaption></figure>
+</div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">A 512 × 512 colour image is 786,432 numbers. A fully connected layer with just 1,000 units would need about 786 million weights for its first layer alone.</p>
+<p class="note">Neighbouring pixels are nearly equal, and a vessel looks the same wherever it runs. Convolutions exploit both facts: small kernels, reused everywhere (Chapters 44–46). The green channel usually carries the most vessel contrast in fundus images — try it.</p>
+<script>
+const $ = id => document.getElementById(id);
+const S = 256; let cx = 150, cy = 110;
+const off = document.createElement("canvas"); off.width = off.height = S; const g = off.getContext("2d");
+g.fillStyle = "#000"; g.fillRect(0, 0, S, S); const gr = g.createRadialGradient(128, 128, 10, 128, 128, 124); gr.addColorStop(0, "#c85a2a"); gr.addColorStop(1, "#5a1a0c"); g.fillStyle = gr; g.beginPath(); g.arc(128, 128, 122, 0, 7); g.fill();
+g.strokeStyle = "#3a0806"; g.lineWidth = 3; [[175, 128, 128, 60, 60, 50], [175, 128, 128, 196, 60, 206], [175, 128, 220, 60, 236, 48], [175, 128, 220, 196, 236, 208]].forEach(([a, b, c, d, e, f]) => { g.beginPath(); g.moveTo(a, b); g.quadraticCurveTo(c, d, e, f); g.stroke(); });
+g.fillStyle = "#f2d8a0"; g.beginPath(); g.arc(175, 128, 16, 0, 7); g.fill(); g.fillStyle = "#3a0c06"; g.beginPath(); g.arc(92, 130, 9, 0, 7); g.fill();
+const D = g.getImageData(0, 0, S, S).data;
+function draw() {
+  const z = +$("z").value, ch = +$("ch").value, side = +$("side").value; $("zV").textContent = z; $("sideV").textContent = side;
+  const f = $("full").getContext("2d"); f.drawImage(off, 0, 0); f.strokeStyle = "#e0930b"; f.lineWidth = 2; f.strokeRect(cx - z / 2, cy - z / 2, z, z);
+  const zc = $("zoom").getContext("2d"), cs = S / z; zc.clearRect(0, 0, S, S);
+  for (let r = 0; r < z; r++) for (let c = 0; c < z; c++) { const x = Math.min(S - 1, Math.max(0, Math.round(cx - z / 2 + c))), y = Math.min(S - 1, Math.max(0, Math.round(cy - z / 2 + r))), k = (y * S + x) * 4;
+    zc.fillStyle = `rgb(${D[k]},${D[k + 1]},${D[k + 2]})`; zc.fillRect(c * cs, r * cs, cs + 1, cs + 1);
+    if (z <= 12) { zc.fillStyle = D[k + ch] > 120 ? "#000" : "#fff"; zc.font = `${Math.floor(cs / 3)}px ui-monospace,monospace`; zc.textAlign = "center"; zc.fillText(D[k + ch], c * cs + cs / 2, r * cs + cs / 2 + cs / 8); } }
+  const n = side * side * 3;
+  $("out").textContent = `${side} × ${side} × 3 = ${n.toLocaleString()} numbers\nfirst fully connected layer with 1,000 units: ${(n * 1000).toExponential(2)} weights\na 3 × 3 convolution with 64 kernels: 3 × 3 × 3 × 64 + 64 = 1,792 weights, whatever the image size`;
+}
+$("full").addEventListener("click", e => { const r = e.target.getBoundingClientRect(); cx = (e.clientX - r.left) / r.width * S; cy = (e.clientY - r.top) / r.height * S; draw(); });
+["z", "side"].forEach(k => $(k).addEventListener("input", draw)); $("ch").addEventListener("change", draw); draw();
+</script></main></body></html>

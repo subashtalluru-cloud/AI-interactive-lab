@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gradient descent on a bowl — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:235">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 15, 30, 39 · Lab L15.2</span></p>
+</div></header>
+
+<main>
+<h1>Gradient descent on a bowl</h1>
+<p class="lede">The same four numbers as Chapter 15: x = 1, 2, 3, 4 and y = 2, 3, 5, 6. Watch the line move, the residual springs shorten, and the loss fall — then break it by raising the learning rate.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control">
+      <label for="lr">Learning rate η <span class="val" id="lrVal">0.050</span></label>
+      <input type="range" id="lr" min="0.005" max="0.16" step="0.005" value="0.05">
+    </div>
+    <div class="control">
+      <label for="w0">Starting slope w <span class="val" id="w0Val">0.00</span></label>
+      <input type="range" id="w0" min="-1" max="3" step="0.05" value="0">
+    </div>
+    <div class="control">
+      <label for="b0">Starting intercept b <span class="val" id="b0Val">0.00</span></label>
+      <input type="range" id="b0" min="-3" max="3" step="0.05" value="0">
+    </div>
+    <div class="control" style="display:flex;gap:.5rem;align-items:end">
+      <button id="step">Take one step</button>
+      <button id="run" class="ghost">Run 50</button>
+      <button id="reset" class="ghost">Reset</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="fig" viewBox="0 0 720 320" role="img" aria-labelledby="figTitle">
+    <title id="figTitle">Left: the four data points with the current line and its residuals. Right: the loss landscape with the current parameters marked.</title>
+  </svg>
+  <figcaption>Left: data, current line, and one vertical residual per point — the squared lengths are what the loss adds up. Right: contours of the loss over (w, b), with the path taken so far. The optimum is w = 1.4, b = 0.5, loss 0.05.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+
+<h2>Three things to try</h2>
+<p class="finding">Leave η at 0.05 and press “Run 50”. The loss falls 18.5 → 0.55 → 0.064 in the first three steps, exactly as computed in Chapter 15, then creeps to 0.05 as the slope flattens near the bottom.</p>
+<p class="note">Raise η to about 0.11 and step. The path zig-zags across the valley: the loss is far more sensitive to w than to b, so the steepest-descent direction does not point at the minimum. Feature scaling would round the contours out.</p>
+<p class="note">Raise η past about 0.12 and step a few times. The loss increases: each step overshoots the bottom by more than it started with, and the parameters diverge. The threshold is 2 divided by the largest curvature of the loss (here about 16.7), so η ≈ 0.12. This is the same arithmetic that makes a too-large learning rate ruin a real training run.</p>
+
+<script>
+const X = [1, 2, 3, 4], Y = [2, 3, 5, 6];
+let w = 0, b = 0, path = [[0, 0]];
+
+const loss = (w, b) => X.reduce((a, x, i) => a + (w * x + b - Y[i]) ** 2, 0) / X.length;
+const grads = (w, b) => {
+  let gw = 0, gb = 0;
+  X.forEach((x, i) => { const e = w * x + b - Y[i]; gw += e * x; gb += e; });
+  return [2 * gw / X.length, 2 * gb / X.length];
+};
+
+function step() {
+  const lr = +document.getElementById("lr").value;
+  const [gw, gb] = grads(w, b);
+  w -= lr * gw; b -= lr * gb;
+  if (!isFinite(w) || Math.abs(w) > 1e6) { w = Math.sign(w) * 1e6; }
+  path.push([w, b]);
+  if (path.length > 400) path.shift();
+  draw();
+}
+
+function reset() {
+  w = +document.getElementById("w0").value;
+  b = +document.getElementById("b0").value;
+  path = [[w, b]];
+  draw();
+}
+
+function draw() {
+  const lr = +document.getElementById("lr").value;
+  document.getElementById("lrVal").textContent = lr.toFixed(3);
+  document.getElementById("w0Val").textContent = (+document.getElementById("w0").value).toFixed(2);
+  document.getElementById("b0Val").textContent = (+document.getElementById("b0").value).toFixed(2);
+
+  // ---- left panel: data and line ----
+  const px = v => 40 + (v / 5) * 260, py = v => 280 - (v / 8) * 250;
+  let s = `<title id="figTitle">Data with fitted line, and the loss landscape</title><defs><clipPath id="cl"><rect x="20" y="20" width="320" height="280" rx="8"/></clipPath><clipPath id="cr"><rect x="380" y="20" width="320" height="280" rx="8"/></clipPath></defs>`;
+  s += `<rect x="20" y="20" width="320" height="280" fill="#f3f5f9" stroke="#d7dce6" rx="8"/>`;
+  s += `<g clip-path="url(#cl)">`;
+  for (let g = 0; g <= 5; g++) s += `<line x1="${px(g)}" y1="30" x2="${px(g)}" y2="290" stroke="#e3e7ef"/>`;
+  const wc = Math.max(-50, Math.min(50, w)), bc = Math.max(-50, Math.min(50, b));
+  s += `<line x1="${px(0)}" y1="${py(bc)}" x2="${px(5)}" y2="${py(5 * wc + bc)}" stroke="#1b4de4" stroke-width="2.5"/>`;
+  X.forEach((x, i) => {
+    const yhat = wc * x + bc;
+    s += `<line x1="${px(x)}" y1="${py(Y[i])}" x2="${px(x)}" y2="${py(yhat)}" stroke="#d6215a" stroke-width="2" stroke-dasharray="3 3"/>`;
+    s += `<circle cx="${px(x)}" cy="${py(Y[i])}" r="5" fill="#0f1626"/>`;
+  });
+  s += `</g>`;
+  s += `<text x="30" y="300" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">x</text>`;
+
+  // ---- right panel: loss contours over (w,b) ----
+  const cx = v => 400 + ((v + 1) / 4) * 280;   // w from -1 to 3
+  const cy = v => 290 - ((v + 2) / 5) * 260;   // b from -2 to 3
+  s += `<rect x="380" y="20" width="320" height="280" fill="#f3f5f9" stroke="#d7dce6" rx="8"/>`;
+  s += `<g clip-path="url(#cr)">`;
+  const levels = [0.2, 1, 3, 8, 18, 35];
+  levels.forEach((L, li) => {
+    let pts = [];
+    for (let t = 0; t <= 60; t++) {
+      const th = (t / 60) * Math.PI * 2;
+      // loss is quadratic; find radius along direction by scanning
+      let lo = 0, hi = 6;
+      for (let k = 0; k < 24; k++) {
+        const mid = (lo + hi) / 2;
+        const ww = 1.4 + mid * Math.cos(th) * 0.6, bb = 0.5 + mid * Math.sin(th) * 1.6;
+        (loss(ww, bb) < L) ? lo = mid : hi = mid;
+      }
+      const ww = 1.4 + lo * Math.cos(th) * 0.6, bb = 0.5 + lo * Math.sin(th) * 1.6;
+      pts.push(`${cx(ww).toFixed(1)},${cy(bb).toFixed(1)}`);
+    }
+    s += `<polygon points="${pts.join(" ")}" fill="none" stroke="#9aa6bd" stroke-width="${1 + li * 0.1}" opacity="${0.8 - li * 0.08}"/>`;
+  });
+  s += `<circle cx="${cx(1.4)}" cy="${cy(0.5)}" r="7" fill="none" stroke="#0e8f6e" stroke-width="3"/>`;
+  const visible = path.filter(([pw, pb]) => pw > -1.2 && pw < 3.2 && pb > -2.2 && pb < 3.2);
+  if (visible.length > 1) {
+    s += `<polyline points="${visible.map(([pw, pb]) => `${cx(pw).toFixed(1)},${cy(pb).toFixed(1)}`).join(" ")}"
+           fill="none" stroke="#e0930b" stroke-width="2"/>`;
+  }
+  if (wc > -1.2 && wc < 3.2 && bc > -2.2 && bc < 3.2)
+    s += `<circle cx="${cx(wc)}" cy="${cy(bc)}" r="5" fill="#d6215a"/>`;
+  s += `</g>`;
+  s += `<text x="390" y="300" font-family="ui-sans-serif,system-ui" font-size="12" fill="#4a5468">w →   (green ring = optimum)</text>`;
+  document.getElementById("fig").innerHTML = s;
+
+  const [gw, gb] = grads(w, b);
+  document.getElementById("out").textContent =
+    `w = ${w.toFixed(4)}   b = ${b.toFixed(4)}   loss = ${loss(w, b).toFixed(4)}   ` +
+    `∂L/∂w = ${gw.toFixed(4)}   ∂L/∂b = ${gb.toFixed(4)}   steps = ${path.length - 1}`;
+}
+
+document.getElementById("step").addEventListener("click", step);
+document.getElementById("run").addEventListener("click", () => { for (let i = 0; i < 50; i++) step(); });
+document.getElementById("reset").addEventListener("click", reset);
+["lr"].forEach(id => document.getElementById(id).addEventListener("input", draw));
+["w0", "b0"].forEach(id => document.getElementById(id).addEventListener("input", reset));
+reset();
+</script>
+</main>
+</body>
+</html>

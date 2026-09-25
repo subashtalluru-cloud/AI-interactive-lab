@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where a transformer’s parameters live — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:330">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 72, 73, 81, 74 · Lab L81.1</span></p>
+</div></header>
+<main>
+<h1>Where a transformer’s parameters live</h1>
+<p class="lede">Each block holds an attention sublayer (four d × d matrices, however many heads) and a feed-forward network (two d × 4d matrices). Add the embedding table and you have almost the whole count: about 12Ld² + Vd.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="d">Model width d <span class="val" id="dV"></span></label><input type="range" id="d" min="256" max="16384" step="128" value="4096"></div>
+<div class="control"><label for="L">Layers L <span class="val" id="LV"></span></label><input type="range" id="L" min="2" max="128" step="1" value="32"></div>
+<div class="control"><label for="h">Heads <span class="val" id="hV"></span></label><input type="range" id="h" min="1" max="128" step="1" value="32"></div>
+<div class="control"><label for="V">Vocabulary V <span class="val" id="VV"></span></label><input type="range" id="V" min="1000" max="256000" step="1000" value="32000"></div>
+<div class="control"><label for="ff">FFN expansion <span class="val" id="ffV"></span></label><input type="range" id="ff" min="1" max="8" step="0.25" value="4"></div>
+<div class="control" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:end"><button class="ghost" data-p="512,6,8,37000,4">Original transformer base</button><button class="ghost" data-p="4096,32,32,32000,4">7B-class</button><button class="ghost" data-p="12288,96,96,50257,4">GPT-3 175B</button></div>
+</div></div>
+<figure><svg id="bar" viewBox="0 0 720 120" role="img" aria-labelledby="bT"><title id="bT">Share of parameters: attention, FFN, embeddings</title></svg>
+<figcaption>Cobalt: attention. Green: feed-forward. Amber: embeddings.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">d = 512: per head 98,304; 8 heads 786,432; plus W_O 262,144 = 4d² = 1,048,576. The FFN adds 8d² = 2,097,152, so a block is 12d² ≈ 3.15 million, two-thirds of it in the FFN (Math Boxes 72.1, 73.1). The GPT-3 preset gives about 175 billion.</p>
+<p class="note">Changing the number of heads changes nothing in the count: heads partition the same projections. The attention <em>patterns</em> are not parameters at all — they are computed afresh for every input. Memory at 16 bits is 2 bytes per parameter; training with Adam needs roughly 16 (Chapters 72, 73, 81, 98). Real models differ in details (gated FFNs, grouped-query attention, tied embeddings), usually by a few percent. The 7B-class preset gives 6.57 B; Chapter 81’s 6.74 B counts that model’s gated FFN (three matrices of width 11,008) and a separate output layer of V × d.</p>
+<script>
+const $ = id => document.getElementById(id);
+const f = n => n >= 1e9 ? (n / 1e9).toFixed(2) + " B" : n >= 1e6 ? (n / 1e6).toFixed(2) + " M" : n.toLocaleString();
+function draw() {
+  const d = +$("d").value, L = +$("L").value, h = +$("h").value, V = +$("V").value, ff = +$("ff").value;
+  ["d", "L", "h", "V", "ff"].forEach(i => $(i + "V").textContent = (+$(i).value).toLocaleString());
+  const dh = d / h, head = 3 * d * dh, att = 4 * d * d, ffn = 2 * ff * d * d, emb = V * d, tot = L * (att + ffn) + emb;
+  const W = 680 / tot; let x = 20;
+  let s = `<title id="bT">Shares</title>`;
+  [[L * att, "#1b4de4", "attention"], [L * ffn, "#0e8f6e", "FFN"], [emb, "#e0930b", "embeddings"]].forEach(([v, c, l]) => { s += `<rect x="${x}" y="20" width="${v * W}" height="44" fill="${c}"/>`; if (v * W > 70) s += `<text x="${x + 8}" y="47" font-family="ui-sans-serif,system-ui" font-size="12" fill="#fff">${l} ${(v / tot * 100).toFixed(0)}%</text>`; x += v * W; });
+  $("bar").innerHTML = s;
+  $("out").textContent =
+    `head dimension d/h = ${Number.isInteger(dh) ? dh : dh.toFixed(1)};  Q,K,V per head: 3 × ${d} × ${Number.isInteger(dh) ? dh : dh.toFixed(1)} = ${f(head)};  all heads ${f(head * h)} (= 3d²)\n` +
+    `attention per block: 4d² = ${f(att)}     FFN per block: 2 × ${ff} × d² = ${f(ffn)}     block total ${f(att + ffn)}\n` +
+    `${L} blocks: ${f(L * (att + ffn))}   embeddings V×d: ${f(emb)}   TOTAL ≈ ${f(tot)}\n` +
+    `memory: ${(tot * 2 / 1e9).toFixed(1)} GB at 16 bits; ~${(tot * 16 / 1e9).toFixed(0)} GB to train with Adam (excluding activations)`;
+}
+document.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { const v = b.dataset.p.split(","); ["d", "L", "h", "V", "ff"].forEach((i, k) => $(i).value = v[k]); draw(); });
+["d", "L", "h", "V", "ff"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maximum likelihood, one toss at a time — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:257">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 28 · Lab L28.1</span></p>
+</div></header>
+<main>
+<h1>Maximum likelihood, one coin toss at a time</h1>
+<p class="lede">For each possible value of p, the chance of heads, ask: how probable would the tosses we actually saw have been? That function of p is the likelihood. Its peak is the maximum-likelihood estimate — and its width shows how sure the data let us be.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end">
+      <button id="h">+ Heads</button><button id="t">+ Tails</button><button id="r10" class="ghost">+ 10 random (true p = 0.7)</button><button id="r100" class="ghost">+ 100 random</button><button id="clr" class="ghost">Clear</button>
+    </div>
+    <div class="control"><label for="show">Show</label><select id="show"><option value="lik">Likelihood (rescaled to peak 1)</option><option value="nll">Negative log-likelihood per toss</option></select></div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="0 0 720 300" role="img" aria-labelledby="pT"><title id="pT">Likelihood of the observed tosses as a function of p</title></svg>
+  <figcaption>Horizontal axis: candidate p. The vertical line marks the maximum-likelihood estimate k/n. The shaded band is where the likelihood is at least 15% of its peak — a rough 95% range.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<h2>What to notice</h2>
+<p class="finding">After 7 heads in 10 tosses the curve peaks at p = 0.7 but is wide — values from about 0.4 to 0.9 remain plausible. After 70 in 100 it peaks at the same place but is about three times narrower: more data, sharper belief.</p>
+<p class="note">Switch to negative log-likelihood: the peak becomes a minimum — this is the curve training descends. For a classifier the same quantity is cross-entropy; for a language model, the average −ln P(next token). “Minimize the loss” and “find the parameters under which the data were most probable” are one instruction (Math Box 28.1).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+let k = 0, n = 0, seq = [];
+function add(x) { seq.push(x); k += x; n++; draw(); }
+function draw() {
+  const ps = Array.from({ length: 999 }, (_, i) => (i + 1) / 1000);
+  const ll = p => k * Math.log(p) + (n - k) * Math.log(1 - p);
+  const X = p => 60 + p * 620, Y = v => 260 - v * 220;
+  let s = `<title id="pT">Likelihood</title><rect x="60" y="30" width="620" height="230" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  [0, .25, .5, .75, 1].forEach(v => s += `<text x="${X(v)}" y="278" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${v}</text>`);
+  if (n) {
+    const mle = k / n, top = Math.max(...ps.map(ll));
+    const band = ps.filter(p => ll(p) - top > Math.log(0.15));
+    s += `<rect x="${X(band[0])}" y="30" width="${X(band[band.length - 1]) - X(band[0])}" height="230" fill="#0e8f6e" fill-opacity="0.1"/>`;
+    if ($("show").value === "lik") s += `<polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${ps.map(p => `${X(p)},${Y(Math.exp(ll(p) - top))}`).join(" ")}"/>`;
+    else { const v = ps.map(p => -ll(p) / n), mx = 3; s += `<polyline fill="none" stroke="#d6215a" stroke-width="3" points="${ps.map((p, i) => `${X(p)},${Y(Math.min(v[i], mx) / mx)}`).join(" ")}"/>`; }
+    s += `<line x1="${X(mle)}" y1="30" x2="${X(mle)}" y2="260" stroke="#0f1626" stroke-dasharray="5 4"/>`;
+    $("out").textContent =
+      `${n} tosses, ${k} heads:  likelihood L(p) = p^${k} × (1 − p)^${n - k}\n` +
+      `maximum-likelihood estimate p̂ = k/n = ${mle.toFixed(3)}    NLL per toss at p̂ = ${(-ll(Math.min(Math.max(mle, 1e-9), 1 - 1e-9)) / n).toFixed(3)}\n` +
+      `plausible range (likelihood ≥ 15% of peak): ${band[0].toFixed(2)} – ${band[band.length - 1].toFixed(2)}    width ${(band[band.length - 1] - band[0]).toFixed(2)}\n` +
+      `last tosses: ${seq.slice(-30).map(v => v ? "H" : "T").join("")}`;
+  } else $("out").textContent = "No tosses yet: every p is equally compatible with no data.";
+  $("plot").innerHTML = s;
+}
+$("h").onclick = () => add(1); $("t").onclick = () => add(0);
+$("r10").onclick = () => { for (let i = 0; i < 10; i++) add(Math.random() < 0.7 ? 1 : 0); };
+$("r100").onclick = () => { for (let i = 0; i < 100; i++) add(Math.random() < 0.7 ? 1 : 0); };
+$("clr").onclick = () => { k = 0; n = 0; seq = []; draw(); };
+$("show").addEventListener("change", draw);
+[1, 1, 1, 0, 1, 1, 0, 1, 0, 1].forEach(add);
+</script>
+</main></body></html>

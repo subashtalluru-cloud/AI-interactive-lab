@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The LSTM cell — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:300">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 54, 55 · Lab L55.1</span></p>
+</div></header>
+<main>
+<h1>The LSTM cell: a memory the gradient can travel along</h1>
+<p class="lede">An LSTM keeps a cell state that is updated by addition, not by being pushed through a weight matrix and a squashing function. The gradient passed back along the memory is just the forget gate — so memories, and their learning signal, can last.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="c0">Previous cell state c <span class="val" id="c0V"></span></label><input type="range" id="c0" min="-2" max="2" step="0.05" value="0.8"></div>
+<div class="control"><label for="f">Forget gate f <span class="val" id="fV"></span></label><input type="range" id="f" min="0" max="1" step="0.01" value="0.9"></div>
+<div class="control"><label for="i">Input gate i <span class="val" id="iV"></span></label><input type="range" id="i" min="0" max="1" step="0.01" value="0.2"></div>
+<div class="control"><label for="g">Candidate g <span class="val" id="gV"></span></label><input type="range" id="g" min="-1" max="1" step="0.05" value="0.5"></div>
+<div class="control"><label for="o">Output gate o <span class="val" id="oV"></span></label><input type="range" id="o" min="0" max="1" step="0.01" value="0.7"></div>
+<div class="control"><label for="T">Steps to carry the memory <span class="val" id="TV"></span></label><input type="range" id="T" min="1" max="100" step="1" value="50"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Gradient surviving along the cell state versus a plain RNN</title></svg>
+<figcaption>Log scale. Cobalt: fᵀ, the gradient surviving along the LSTM memory. Crimson: a plain tanh RNN with weight 0.5, as in Lab L54.1 (≈ 0.5ᵀ).</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">c = 0.8, f = 0.9, i = 0.2, g = 0.5, o = 0.7: new cell 0.72 + 0.10 = 0.82; output 0.7 × tanh(0.82) = 0.473. Gradient back along the memory: 0.9 per step (Math Box 55.1).</p>
+<p class="note">f = 0.99 over 50 steps keeps 0.61 of the signal; f = 0.9 keeps 0.005 — small, but about twelve orders of magnitude more than the plain RNN’s 10⁻¹⁵. The network learns when to set f near 1 (remember) and when to lower it (forget). The additive path is the same idea as ResNets and the transformer’s residual stream (Chapters 50, 55, 73).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [c0, f, i, g, o, T] = ["c0", "f", "i", "g", "o", "T"].map(k => +$(k).value);
+  ["c0", "f", "i", "g", "o", "T"].forEach(k => $(k + "V").textContent = k === "T" ? T : (+$(k).value).toFixed(2));
+  const c = f * c0 + i * g, h = o * Math.tanh(c);
+  const lo = -16, X = t => 60 + (t - 1) / 99 * 620, Y = v => 30 + (-Math.log10(Math.max(v, 1e-16))) / -lo * 200;
+  let s = `<title id="pT">Gradient along memory</title><rect x="60" y="30" width="620" height="200" fill="#f3f5f9" stroke="#d7dce6"/>`;
+  for (let e = 0; e >= lo; e -= 4) s += `<line x1="60" y1="${Y(10 ** e)}" x2="680" y2="${Y(10 ** e)}" stroke="#e3e7ef"/><text x="54" y="${Y(10 ** e) + 4}" text-anchor="end" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">10^${e}</text>`;
+  const ts = Array.from({ length: 100 }, (_, k) => k + 1);
+  s += `<polyline fill="none" stroke="#d6215a" stroke-width="2.5" points="${ts.map(t => `${X(t)},${Y(0.5 ** t)}`).join(" ")}"/><polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${ts.map(t => `${X(t)},${Y(f ** t)}`).join(" ")}"/>`;
+  s += `<line x1="${X(T)}" y1="30" x2="${X(T)}" y2="230" stroke="#0f1626" stroke-dasharray="3 4"/>`;
+  [1, 25, 50, 75, 100].forEach(t => s += `<text x="${X(t)}" y="248" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${t}</text>`);
+  $("plot").innerHTML = s;
+  $("out").textContent = `c_new = f·c + i·g = ${f.toFixed(2)}×${c0.toFixed(2)} + ${i.toFixed(2)}×${g.toFixed(2)} = ${c.toFixed(3)}\nh = o·tanh(c_new) = ${o.toFixed(2)} × ${Math.tanh(c).toFixed(3)} = ${h.toFixed(3)}\n∂c_t/∂c_(t−1) = f = ${f.toFixed(2)};  over ${T} steps: ${f.toFixed(2)}^${T} = ${(f ** T).toExponential(2)}   (plain RNN ≈ ${(0.5 ** T).toExponential(1)})`;
+}
+["c0", "f", "i", "g", "o", "T"].forEach(k => $(k).addEventListener("input", draw)); draw();
+</script></main></body></html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Truth tables — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:223">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapter 8 · Lab L8.1</span></p>
+</div></header>
+<main>
+<h1>Truth tables: checking an argument by brute force</h1>
+<p class="lede">An argument is valid if no assignment of true and false makes every premise true and the conclusion false. A truth table checks every assignment — no insight needed, but the table doubles with every new atom.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="arg">Argument</label><select id="arg">
+<option value="ac">P → Q, Q ⊢ P (affirming the consequent)</option>
+<option value="mp">P → Q, P ⊢ Q (modus ponens)</option>
+<option value="mt">P → Q, ¬Q ⊢ ¬P (modus tollens)</option>
+<option value="da">P → Q, ¬P ⊢ ¬Q (denying the antecedent)</option></select></div>
+<div class="control"><label for="n">Atoms (for the cost line) <span class="val" id="nV"></span></label><input type="range" id="n" min="2" max="60" step="1" value="30"></div>
+</div></div>
+<p id="gloss" class="note"></p>
+<table id="tab" style="font-family:var(--mono);border-collapse:collapse;margin:.5rem 0"></table>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">From “P → Q” and “Q” you cannot conclude P: the row P false, Q true makes both premises true and the conclusion false (Math Box 8.1).</p>
+<p class="note">Thirty atoms need about a billion rows; sixty need 10¹⁸. Logic is sound but brittle and expensive at scale — one reason AI moved toward probability and learning (Chapters 5, 8, 11). The clinical version of the fallacy: glaucoma causes cupping; this disc is cupped; so glaucoma — ignoring large physiological cups.</p>
+<script>
+const $ = id => document.getElementById(id);
+const imp = (a, b) => !a || b;
+const A = { ac: [[(p, q) => imp(p, q), (p, q) => q], (p, q) => p, ["P→Q", "Q"], "P"], mp: [[(p, q) => imp(p, q), (p, q) => p], (p, q) => q, ["P→Q", "P"], "Q"],
+  mt: [[(p, q) => imp(p, q), (p, q) => !q], (p, q) => !p, ["P→Q", "¬Q"], "¬P"], da: [[(p, q) => imp(p, q), (p, q) => !p], (p, q) => !q, ["P→Q", "¬P"], "¬Q"] };
+const G = { ac: "“Glaucoma causes cupping; this disc is cupped; so glaucoma.”", mp: "“Glaucoma causes cupping; this patient has glaucoma; so the disc is cupped.”", mt: "“Glaucoma causes cupping; this disc is not cupped; so not glaucoma.”", da: "“Glaucoma causes cupping; no glaucoma; so no cupping.”" };
+const T = b => b ? "T" : "F";
+function draw() {
+  const k = $("arg").value, [prem, conc, pl, cl] = A[k], n = +$("n").value; $("nV").textContent = n; $("gloss").textContent = G[k];
+  let bad = 0, rows = "";
+  [[true, true], [true, false], [false, true], [false, false]].forEach(([p, q]) => { const pr = prem.map(f => f(p, q)), allT = pr.every(x => x), c = conc(p, q), counter = allT && !c; if (counter) bad++;
+    rows += `<tr style="${counter ? "background:#fde8ee" : ""}"><td>${T(p)}</td><td>${T(q)}</td>${pr.map(x => `<td>${T(x)}</td>`).join("")}<td>${allT ? "yes" : "no"}</td><td>${allT ? T(c) : "—"}</td><td>${counter ? "← counterexample" : ""}</td></tr>`; });
+  $("tab").innerHTML = `<tr><th>P</th><th>Q</th>${pl.map(x => `<th>${x}</th>`).join("")}<th>premises true?</th><th>${cl}</th><th></th></tr>` + rows;
+  [...$("tab").querySelectorAll("td,th")].forEach(c => { c.style.padding = ".3rem .7rem"; c.style.borderBottom = "1px solid #d7dce6"; });
+  $("out").textContent = `${bad ? "INVALID" : "VALID"}: ${bad} counterexample row(s) of 4\n${n} atoms → 2^${n} = ${(2 ** n).toExponential(2)} rows to check`;
+}
+$("arg").addEventListener("change", draw); $("n").addEventListener("input", draw); draw();
+</script></main></body></html>

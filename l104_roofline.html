@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compute-bound or memory-bound? — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:357">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 88, 104 · Lab L104.1</span></p>
+</div></header>
+<main>
+<h1>Compute-bound or memory-bound?</h1>
+<p class="lede">An accelerator can do a fixed number of operations per byte it fetches from memory. Work that does more arithmetic per byte than that is limited by compute; work that does less waits on memory. The same model is one in training and the other in decoding.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="F">Peak compute (10¹⁴ FLOP/s) <span class="val" id="FV"></span></label><input type="range" id="F" min="0.5" max="20" step="0.5" value="3"></div>
+<div class="control"><label for="B">Memory bandwidth (TB/s) <span class="val" id="BV"></span></label><input type="range" id="B" min="0.5" max="8" step="0.1" value="2"></div>
+<div class="control"><label for="d">Matrix size d <span class="val" id="dV"></span></label><input type="range" id="d" min="256" max="16384" step="256" value="4096"></div>
+<div class="control"><label for="b">Batch (vectors multiplied at once) <span class="val" id="bV"></span></label><input type="range" id="b" min="0" max="13" step="1" value="0"></div>
+</div></div>
+<figure><svg id="plot" viewBox="0 0 720 260" role="img" aria-labelledby="pT"><title id="pT">Roofline: achievable throughput against arithmetic intensity</title></svg><figcaption>Log–log roofline. Sloped part: memory-bound. Flat part: compute-bound. Dot: your operation.</figcaption></figure>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">3 × 10¹⁴ FLOP/s ÷ 2 × 10¹² bytes/s = 150 FLOPs per byte. A 4,096 × 4,096 matrix–matrix product: ~1,370 FLOPs/byte (compute-bound). The same matrix times one vector: ~1 FLOP/byte (memory-bound) (Math Box 104.1).</p>
+<p class="note">Batching turns matrix–vector products into matrix–matrix products and climbs the roof; quantization moves fewer bytes. Much of inference engineering is about moving an operation from the slope to the flat (Chapters 88, 100, 104, 105).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const F = +$("F").value * 1e14, B = +$("B").value * 1e12, d = +$("d").value, b = 2 ** +$("b").value;
+  $("FV").textContent = $("F").value; $("BV").textContent = $("B").value; $("dV").textContent = d; $("bV").textContent = b.toLocaleString();
+  const ridge = F / B, fl = 2 * d * d * b, by = 2 * (d * d + 2 * d * b), I = fl / by, perf = Math.min(F, I * B);
+  const X = v => 60 + (Math.log10(v) + 1) / 6 * 620, Y = v => 230 - (Math.log10(v) - 11) / 4 * 200;
+  const is = Array.from({ length: 121 }, (_, i) => 10 ** (-1 + i / 20));
+  let s = `<title id="pT">Roofline</title><rect x="60" y="30" width="620" height="200" fill="#f3f5f9" stroke="#d7dce6"/><polyline fill="none" stroke="#1b4de4" stroke-width="3" points="${is.map(v => `${X(v)},${Y(Math.max(1e11, Math.min(F, v * B)))}`).join(" ")}"/><line x1="${X(ridge)}" y1="30" x2="${X(ridge)}" y2="230" stroke="#9aa3b5" stroke-dasharray="4 4"/><circle cx="${X(Math.max(.1, I))}" cy="${Y(Math.max(1e11, perf))}" r="7" fill="#d6215a"/>`;
+  [0.1, 1, 10, 100, 1000, 10000, 100000].forEach(v => s += `<text x="${X(v)}" y="248" text-anchor="middle" font-family="ui-sans-serif,system-ui" font-size="10" fill="#4a5468">${v}</text>`);
+  $("plot").innerHTML = s;
+  $("out").textContent = `ridge point: ${(F / 1e14).toFixed(1)}e14 / ${(B / 1e12).toFixed(1)}e12 = ${ridge.toFixed(0)} FLOPs per byte\n${b === 1 ? "matrix × vector" : `matrix × ${b} vectors`}: ${fl.toExponential(2)} FLOPs, ${by.toExponential(2)} bytes (16-bit) → intensity ${I.toFixed(1)} FLOPs/byte → ${I < ridge ? "MEMORY-BOUND" : "COMPUTE-BOUND"}\nachievable ${(perf / F * 100).toFixed(1)}% of peak; full square matrix product (b = d): intensity ≈ ${(2 * d ** 3 / (6 * d * d)).toFixed(0)}`;
+}
+["F", "B", "d", "b"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

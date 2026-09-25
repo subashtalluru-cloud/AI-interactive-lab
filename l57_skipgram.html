@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skip-gram with negative sampling — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:303">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 56, 57 · Lab L57.1</span></p>
+</div></header>
+<main>
+<h1>Word vectors from co-occurrence: skip-gram with negative sampling</h1>
+<p class="lede">Every word starts as a random point. For each word pair that appears together in the corpus, their vectors are pulled together; for random pairs, pushed apart. Nothing else is told to the model — yet words used in similar contexts end up near each other.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="neg">Negative samples per real pair k <span class="val" id="negV"></span></label><input type="range" id="neg" min="0" max="10" step="1" value="4"></div>
+    <div class="control"><label for="lr">Learning rate <span class="val" id="lrV"></span></label><input type="range" id="lr" min="0.01" max="0.3" step="0.01" value="0.08"></div>
+    <div class="control" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:end">
+      <button id="go">Train (animate)</button><button id="stop" class="ghost">Pause</button><button id="reset" class="ghost">Re-randomize</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="plot" viewBox="-240 -200 480 400" role="img" aria-labelledby="pT" style="max-width:640px;display:block;margin:auto"><title id="pT">Word vectors in two dimensions during training</title></svg>
+  <figcaption>Two-dimensional word vectors, coloured by the topic of the sentences they appear in (the model is never told the colours). Grey: shared words such as “the”, “patient”, “with”.</figcaption>
+</figure>
+<p class="readout" id="out"></p>
+
+<details><summary style="font-family:var(--sans);font-size:.9rem;cursor:pointer">The training corpus (invented sentences)</summary><p id="corp" style="font-family:var(--mono);font-size:.85rem"></p></details>
+
+<h2>What to notice</h2>
+<p class="finding">The worked pair from Math Box 57.1: a real-pair score of 2.0 costs −ln σ(2.0) ≈ 0.127; a negative-pair score of 0.5 costs −ln σ(−0.5) ≈ 0.974. Training raises the first and lowers the second — tracked in the readout for “pressure”/“intraocular” and “pressure”/“bicycle”.</p>
+<p class="note">Set k = 0 and retrain: with only the “pull together” half, the easiest way to lower the loss is to make every score large, so vectors grow and drift into one direction. Topics separate less (in one run the between-topic cosine rose from 0.46 to 0.58, and the within-topic figures fell), and the model learns nothing about what does <em>not</em> belong together — the bicycle score rises instead of falling. In two dimensions the effect is modest; real embeddings use hundreds of dimensions and billions of words, but the mechanism is this one (Chapters 56–57). The same “pull real pairs, push random pairs” idea reappears as CLIP’s contrastive loss (Chapter 119).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const CORPUS = [
+  "raised intraocular pressure damages the optic nerve", "the patient with glaucoma needs drops for intraocular pressure",
+  "latanoprost drops lower intraocular pressure", "timolol drops lower pressure in glaucoma", "optic nerve cupping in glaucoma",
+  "the patient with cataract has blurred vision", "cataract surgery with a lens implant restores vision", "phaco removes the cataract and places a lens",
+  "blurred vision from cataract improves after surgery", "the patient with uveitis has a red painful eye", "steroid drops treat uveitis inflammation",
+  "uveitis causes inflammation and cells in the eye", "the patient rode a bicycle to the clinic", "a bicycle and a bus reach the clinic"
+];
+const TOPIC = { glaucoma: ["intraocular", "pressure", "optic", "nerve", "glaucoma", "latanoprost", "timolol", "cupping", "damages", "lower", "raised"],
+  cataract: ["cataract", "lens", "phaco", "surgery", "implant", "blurred", "vision", "restores", "removes", "improves"],
+  uveitis: ["uveitis", "steroid", "inflammation", "red", "painful", "cells", "treat"], travel: ["bicycle", "bus", "rode", "clinic", "reach"] };
+const COLOR = { glaucoma: "#1b4de4", cataract: "#0e8f6e", uveitis: "#d6215a", travel: "#e0930b" };
+const topicOf = w => Object.keys(TOPIC).find(t => TOPIC[t].includes(w));
+const sents = CORPUS.map(s => s.split(" ")), vocab = [...new Set(sents.flat())];
+const pairs = []; sents.forEach(s => s.forEach((w, i) => { for (let j = Math.max(0, i - 2); j <= Math.min(s.length - 1, i + 2); j++) if (j !== i) pairs.push([vocab.indexOf(w), vocab.indexOf(s[j])]); }));
+let V, U, timer = null, epoch = 0;
+const sig = z => 1 / (1 + Math.exp(-z)), dot = (a, b) => a[0] * b[0] + a[1] * b[1];
+function reset() { V = vocab.map(() => [Math.random() - .5, Math.random() - .5]); U = vocab.map(() => [Math.random() - .5, Math.random() - .5]); epoch = 0; draw(); }
+function train() {
+  const k = +$("neg").value, lr = +$("lr").value;
+  for (const [c, o] of pairs.slice().sort(() => Math.random() - .5)) {
+    const upd = (oi, y) => { const g = sig(dot(U[oi], V[c])) - y, vc = V[c].slice(); for (let d = 0; d < 2; d++) { V[c][d] -= lr * g * U[oi][d]; U[oi][d] -= lr * g * vc[d]; } };
+    upd(o, 1); for (let j = 0; j < k; j++) upd(Math.floor(Math.random() * vocab.length), 0);
+  }
+  epoch++;
+}
+function draw() {
+  $("negV").textContent = $("neg").value; $("lrV").textContent = (+$("lr").value).toFixed(2);
+  const mx = Math.max(0.5, ...V.flat().map(Math.abs)), S = 180 / mx;
+  let s = `<title id="pT">Vectors</title><line x1="-240" y1="0" x2="240" y2="0" stroke="#e3e7ef"/><line x1="0" y1="-200" x2="0" y2="200" stroke="#e3e7ef"/>`;
+  vocab.forEach((w, i) => { const t = topicOf(w), c = t ? COLOR[t] : "#9aa3b5", x = V[i][0] * S, y = -V[i][1] * S;
+    s += `<circle cx="${x}" cy="${y}" r="${t ? 4.5 : 3}" fill="${c}"/>`; if (t || ["the", "patient", "drops", "eye"].includes(w)) s += `<text x="${x + 6}" y="${y + 4}" font-family="ui-sans-serif,system-ui" font-size="10" fill="${c}">${w}</text>`; });
+  $("plot").innerHTML = s;
+  const I = w => vocab.indexOf(w), sc = (a, b) => dot(V[I(a)], U[I(b)]);
+  const within = (t) => { const ws = TOPIC[t].map(I); let s = 0, n = 0; ws.forEach(a => ws.forEach(b => { if (a < b) { s += dot(V[a], V[b]) / (Math.hypot(...V[a]) * Math.hypot(...V[b]) || 1); n++; } })); return s / n; };
+  const between = () => { const ts = ["glaucoma", "cataract", "uveitis"]; let s = 0, n = 0; ts.forEach((a, i) => ts.slice(i + 1).forEach(b => TOPIC[a].map(I).forEach(x => TOPIC[b].map(I).forEach(y => { s += dot(V[x], V[y]) / (Math.hypot(...V[x]) * Math.hypot(...V[y]) || 1); n++; })))); return s / n; };
+  $("out").textContent =
+    `epoch ${epoch}  (${pairs.length} real pairs per epoch, ${+$("neg").value} negatives each)\n` +
+    `score u_intraocular · v_pressure = ${sc("pressure", "intraocular").toFixed(2)} → loss −ln σ = ${(-Math.log(sig(sc("pressure", "intraocular")))).toFixed(3)}\n` +
+    `score u_bicycle · v_pressure = ${sc("pressure", "bicycle").toFixed(2)} → loss as a negative −ln σ(−s) = ${(-Math.log(sig(-sc("pressure", "bicycle")))).toFixed(3)}\n` +
+    `average cosine within topic: glaucoma ${within("glaucoma").toFixed(2)}, cataract ${within("cataract").toFixed(2)}, uveitis ${within("uveitis").toFixed(2)};  between different topics ${between().toFixed(2)}`;
+}
+$("go").onclick = () => { clearInterval(timer); timer = setInterval(() => { train(); draw(); if (epoch >= 300) clearInterval(timer); }, 40); };
+$("stop").onclick = () => clearInterval(timer);
+$("reset").onclick = () => { clearInterval(timer); reset(); };
+["neg", "lr"].forEach(id => $(id).addEventListener("input", draw));
+$("corp").textContent = CORPUS.join(" · ");
+reset();
+</script>
+</main></body></html>

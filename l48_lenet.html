@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A LeNet-style network, layer by layer — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:287">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 46, 48 · Lab L48.1</span></p>
+</div></header>
+<main>
+<h1>A LeNet-style network, layer by layer</h1>
+<p class="lede">Follow a 32 × 32 image through convolution, pooling and fully connected layers. Two formulas do all the work: the output-size rule and the parameter count (k·k·C_in + 1)·C_out. Change the architecture and see where the parameters go.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="in">Input side <span class="val" id="inV"></span></label><input type="range" id="in" min="28" max="64" step="4" value="32"></div>
+<div class="control"><label for="k">Kernel size <span class="val" id="kV"></span></label><input type="range" id="k" min="3" max="7" step="2" value="5"></div>
+<div class="control"><label for="c1">C1 kernels <span class="val" id="c1V"></span></label><input type="range" id="c1" min="2" max="64" step="1" value="6"></div>
+<div class="control"><label for="c3">C3 kernels <span class="val" id="c3V"></span></label><input type="range" id="c3" min="4" max="128" step="4" value="16"></div>
+<div class="control"><label for="f5">F5 units <span class="val" id="f5V"></span></label><input type="range" id="f5" min="16" max="512" step="8" value="120"></div>
+<div class="control"><label for="f6">F6 units <span class="val" id="f6V"></span></label><input type="range" id="f6" min="8" max="256" step="4" value="84"></div>
+</div></div>
+<table id="tab" style="font-family:var(--mono);font-size:.88rem;border-collapse:collapse;width:100%"></table>
+<figure><svg id="bar" viewBox="0 0 720 70" role="img" aria-labelledby="bT"><title id="bT">Share of parameters by layer</title></svg><figcaption>Share of parameters by layer. The first fully connected layer usually dominates.</figcaption></figure>
+<h2>What to notice</h2>
+<p class="finding">Book’s network: 156 + 2,416 + 48,120 + 10,164 + 850 = 61,706 parameters; shapes 28 → 14 → 10 → 5, flattening to 400 (Math Box 48.1).</p>
+<p class="note">Convolutional layers have few parameters however large the image, because the same small kernel is reused everywhere; the fully connected layer after flattening holds most of them. Modern CNNs replace it with global average pooling for exactly this reason (Chapters 45–50).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const [I, k, c1, c3, f5, f6] = ["in", "k", "c1", "c3", "f5", "f6"].map(i => +$(i).value);
+  ["in", "k", "c1", "c3", "f5", "f6"].forEach(i => $(i + "V").textContent = $(i).value);
+  const s1 = I - k + 1, s2 = Math.floor(s1 / 2), s3 = s2 - k + 1, s4 = Math.floor(s3 / 2), flat = s4 * s4 * c3;
+  const rows = [["Input", "—", `${I}×${I}×1`, 0], ["C1", `${c1} kernels ${k}×${k}`, `${s1}×${s1}×${c1}`, (k * k + 1) * c1], ["S2", "2×2 pool", `${s2}×${s2}×${c1}`, 0], ["C3", `${c3} kernels ${k}×${k}×${c1}`, `${s3}×${s3}×${c3}`, (k * k * c1 + 1) * c3], ["S4", "2×2 pool", `${s4}×${s4}×${c3}`, 0], ["Flatten", "", `${flat}`, 0], ["F5", "fully connected", `${f5}`, (flat + 1) * f5], ["F6", "fully connected", `${f6}`, (f5 + 1) * f6], ["Output", "fully connected", "10", (f6 + 1) * 10]];
+  const tot = rows.reduce((a, r) => a + r[3], 0);
+  $("tab").innerHTML = `<tr><th>Layer</th><th>Operation</th><th>Output</th><th>Parameters</th></tr>` + rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td style="text-align:right">${r[3].toLocaleString()}</td></tr>`).join("") + `<tr><td><strong>Total</strong></td><td></td><td></td><td style="text-align:right"><strong>${tot.toLocaleString()}</strong></td></tr>` + (s4 < 1 ? `<tr><td colspan="4" style="color:#d6215a">Image too small for this kernel: shapes vanish.</td></tr>` : "");
+  [...$("tab").querySelectorAll("td,th")].forEach(c => { c.style.padding = ".25rem .6rem"; c.style.borderBottom = "1px solid #d7dce6"; });
+  let x = 20, g = `<title id="bT">Shares</title>`; const cols = { C1: "#1b4de4", C3: "#2f6fe0", F5: "#d6215a", F6: "#e0930b", Output: "#0e8f6e" };
+  rows.filter(r => r[3]).forEach(r => { const w = r[3] / tot * 680; g += `<rect x="${x}" y="10" width="${w}" height="40" fill="${cols[r[0]]}"/>`; if (w > 50) g += `<text x="${x + 5}" y="35" font-family="ui-sans-serif,system-ui" font-size="11" fill="#fff">${r[0]} ${(r[3] / tot * 100).toFixed(0)}%</text>`; x += w; });
+  $("bar").innerHTML = g;
+}
+["in", "k", "c1", "c3", "f5", "f6"].forEach(i => $(i).addEventListener("input", draw)); draw();
+</script></main></body></html>

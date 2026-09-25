@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Decoding: temperature, top-k, top-p — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+<style>
+  ol#samples{font-family:var(--mono);font-size:.88rem;columns:2;margin:.4rem 0}
+  #prefix{font-family:var(--mono);background:var(--bench);border-radius:8px;padding:.5rem .8rem}
+</style>
+</head>
+<body style="--hue:327">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 70, 89, 144 · Lab L89.2</span></p>
+</div></header>
+
+<main>
+<h1>Decoding: the same model, different writers</h1>
+<p class="lede">A language model gives a probability for every possible next token. How we choose from that list — greedily, or by sampling after reshaping it — decides whether the text is repetitive, sensible, varied or bizarre.</p>
+<p id="prefix">“After starting latanoprost, the patient’s pressure was …”</p>
+<p class="note">The twelve candidate logits are illustrative, chosen to look like a plausible model output; a real model scores its whole vocabulary of tens of thousands of tokens.</p>
+
+<div class="panel">
+  <div class="controls">
+    <div class="control"><label for="T">Temperature <span class="val" id="TV"></span></label><input type="range" id="T" min="0.05" max="3" step="0.05" value="1"></div>
+    <div class="control"><label for="k">Top-k (12 = off) <span class="val" id="kV"></span></label><input type="range" id="k" min="1" max="12" step="1" value="12"></div>
+    <div class="control"><label for="p">Top-p nucleus (1 = off) <span class="val" id="pV"></span></label><input type="range" id="p" min="0.1" max="1" step="0.01" value="1"></div>
+    <div class="control" style="display:flex;gap:.5rem;align-items:end;flex-wrap:wrap">
+      <button id="draw20">Sample 20</button><button id="greedy" class="ghost">Greedy</button><button id="off" class="ghost">Reset settings</button>
+    </div>
+  </div>
+</div>
+
+<figure>
+  <svg id="bars" viewBox="0 0 720 360" role="img" aria-labelledby="bT"><title id="bT">Next-token probabilities after reshaping</title></svg>
+  <figcaption>Grey outline: the model’s raw distribution at T = 1. Coloured bars: what is actually sampled from after temperature, top-k and top-p. Struck-out candidates can never be chosen.</figcaption>
+</figure>
+
+<p class="readout" id="out"></p>
+<ol id="samples"></ol>
+
+<h2>What to notice</h2>
+<p class="finding">Low temperature sharpens the distribution until sampling becomes greedy decoding: the same word every time. High temperature flattens it until nonsense candidates such as “purple” get real probability. Top-k and top-p leave the order unchanged and simply cut off the tail.</p>
+<p class="note">Top-p adapts where top-k cannot: when the model is confident, a 0.9 nucleus may hold one or two tokens; when it is unsure, many. For factual clinical text, low temperature is usually right; for brainstorming, higher. None of these settings makes a wrong model right — they only choose among what it already believes (Chapter 145).</p>
+
+<script>
+const $ = id => document.getElementById(id);
+const C = [["lower",3.2],["reduced",2.9],["controlled",2.5],["stable",2.0],["unchanged",1.6],["higher",1.1],["normal",1.0],["18",.6],["better",.4],["measured",.2],["purple",-1.5],["delicious",-2.2]];
+let samples = [];
+function dist() {
+  const T = +$("T").value, k = +$("k").value, p = +$("p").value;
+  const z = C.map(c => c[1] / T), m = Math.max(...z), e = z.map(v => Math.exp(v - m)), s = e.reduce((a, b) => a + b);
+  const q = e.map(v => v / s);
+  const order = q.map((v, i) => i).sort((a, b) => q[b] - q[a]);
+  const keep = new Set(); let cum = 0;
+  for (const i of order) { if (keep.size >= k) break; if (keep.size && cum >= p) break; keep.add(i); cum += q[i]; }
+  const kept = q.map((v, i) => keep.has(i) ? v : 0), ks = kept.reduce((a, b) => a + b);
+  return { q: kept.map(v => v / ks), keep };
+}
+const raw = (() => { const e = C.map(c => Math.exp(c[1])), s = e.reduce((a, b) => a + b); return e.map(v => v / s); })();
+function sampleOne(q) { let r = Math.random(), i = 0; while (i < q.length - 1 && (r -= q[i]) > 0) i++; return i; }
+function draw() {
+  $("TV").textContent = (+$("T").value).toFixed(2); $("kV").textContent = +$("k").value === 12 ? "off" : $("k").value; $("pV").textContent = +$("p").value >= 1 ? "off" : (+$("p").value).toFixed(2);
+  const { q, keep } = dist();
+  let s = `<title id="bT">Next-token probabilities</title>`;
+  C.forEach(([t], i) => {
+    const y = 12 + i * 28, W = 520, on = keep.has(i);
+    s += `<text x="120" y="${y + 14}" text-anchor="end" font-family="ui-monospace,monospace" font-size="13" fill="${on ? "#0f1626" : "#9aa3b5"}" ${on ? "" : 'text-decoration="line-through"'}>${t}</text>`;
+    s += `<rect x="130" y="${y}" width="${Math.max(0.5, W * raw[i])}" height="18" fill="none" stroke="#9aa3b5" stroke-dasharray="3 3"/>`;
+    if (on) s += `<rect x="130" y="${y + 3}" width="${Math.max(1, W * q[i])}" height="12" rx="2" fill="${i < 7 ? "#1b4de4" : i < 10 ? "#e0930b" : "#d6215a"}"/>`;
+    s += `<text x="${136 + W * Math.max(q[i], raw[i])}" y="${y + 14}" font-family="ui-sans-serif,system-ui" font-size="11" fill="#4a5468">${on ? (q[i] * 100).toFixed(1) + "%" : "—"}</text>`;
+  });
+  $("bars").innerHTML = s;
+  const H = -q.reduce((a, v) => a + (v > 0 ? v * Math.log2(v) : 0), 0);
+  const counts = {}; samples.forEach(i => counts[C[i][0]] = (counts[C[i][0]] || 0) + 1);
+  $("out").textContent = `${keep.size} candidates allowed · entropy ${H.toFixed(2)} bits (effective choices ≈ ${(2 ** H).toFixed(1)})` +
+    (samples.length ? `\nlast ${samples.length} samples: ` + Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${t} ×${n}`).join(", ") : "");
+  $("samples").innerHTML = samples.map(i => `<li>… pressure was <strong>${C[i][0]}</strong></li>`).join("");
+}
+$("draw20").onclick = () => { const { q } = dist(); samples = Array.from({ length: 20 }, () => sampleOne(q)); draw(); };
+$("greedy").onclick = () => { const { q } = dist(); const i = q.indexOf(Math.max(...q)); samples = Array(20).fill(i); draw(); };
+$("off").onclick = () => { $("T").value = 1; $("k").value = 12; $("p").value = 1; samples = []; draw(); };
+["T", "k", "p"].forEach(id => $(id).addEventListener("input", () => { samples = []; draw(); }));
+draw();
+</script>
+</main>
+</body>
+</html>

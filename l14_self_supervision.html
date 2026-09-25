@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Self-supervision: labels for free — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:232">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 13, 14, 77 · Lab L14.1</span></p>
+</div></header>
+<main>
+<h1>Self-supervision: labels for free</h1>
+<p class="lede">Unlabelled text contains its own targets: every word is the answer to “what comes next?” given the words before it. One sentence of T tokens yields T − 1 training examples, and a trillion-token corpus yields about a trillion.</p>
+<div class="panel"><div class="controls">
+<div class="control" style="flex:1 1 100%"><label for="s">Any text</label><input id="s" value="raised intraocular pressure causes damage" style="width:100%;font-family:var(--mono);padding:.4rem;border:1px solid var(--rule);border-radius:6px"></div>
+<div class="control"><label for="m">Objective</label><select id="m"><option value="next">Next-token prediction (GPT-style)</option><option value="mask">Masked-token prediction (BERT-style, every 3rd word)</option></select></div>
+</div></div>
+<table id="tab" style="font-family:var(--mono);font-size:.9rem;border-collapse:collapse"></table>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">“raised intraocular pressure causes damage” (T = 5) gives 4 pairs: raised → intraocular; raised intraocular → pressure; … → damage (Math Box 14.1).</p>
+<p class="note">No clinician labelled anything. This is why language models could scale where supervised medical datasets could not: the labels were already in the data. The same trick powers masked-image and contrastive pretraining (Chapters 14, 77, 119).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const w = $("s").value.trim().split(/\s+/).filter(Boolean), m = $("m").value; let rows = "", n = 0;
+  if (m === "next") w.slice(1).forEach((t, k) => { rows += `<tr><td>${k + 1}</td><td>${w.slice(0, k + 1).join(" ")}</td><td><strong>${t}</strong></td></tr>`; n++; });
+  else w.forEach((t, k) => { if (k % 3 === 1) { rows += `<tr><td>${++n}</td><td>${w.map((x, j) => j === k ? "[MASK]" : x).join(" ")}</td><td><strong>${t}</strong></td></tr>`; } });
+  $("tab").innerHTML = `<tr><th>#</th><th>input</th><th>target</th></tr>` + rows;
+  [...$("tab").querySelectorAll("td,th")].forEach(c => { c.style.padding = ".3rem .7rem"; c.style.borderBottom = "1px solid #d7dce6"; c.style.textAlign = "left"; });
+  $("out").textContent = `${w.length} tokens → ${n} training examples, none labelled by hand\na 10^12-token corpus → about 10^12 examples`;
+}
+$("s").addEventListener("input", draw); $("m").addEventListener("change", draw); draw();
+</script></main></body></html>

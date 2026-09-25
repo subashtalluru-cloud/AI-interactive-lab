@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transfer learning — Understanding Artificial Intelligence</title>
+<link rel="stylesheet" href="../styles.css">
+</head>
+<body style="--hue:293">
+<header class="masthead"><div class="inner">
+  <div class="spectrum">
+    <span style="background:#1b4de4"></span><span style="background:#2f6fe0"></span>
+    <span style="background:#0e8f6e"></span><span style="background:#4fa63c"></span>
+    <span style="background:#e0930b"></span><span style="background:#d6215a"></span>
+    <span style="background:#6c3fd1"></span>
+  </div>
+  <p class="crumb"><a href="../index.html">Understanding Artificial Intelligence</a> <span>Chapters 50, 51 · Lab L51.1</span></p>
+</div></header>
+<main>
+<h1>Transfer learning: how much must be learned?</h1>
+<p class="lede">A network pretrained on millions of images already knows edges, textures and shapes. Fine-tuning for a new clinical task may need to fit only a small head — or a few layers — rather than everything from scratch.</p>
+<div class="panel"><div class="controls">
+<div class="control"><label for="n">Labelled fundus images <span class="val" id="nV"></span></label><input type="range" id="n" min="100" max="100000" step="100" value="2000"></div>
+<div class="control"><label for="k">Output classes <span class="val" id="kV"></span></label><input type="range" id="k" min="2" max="10" step="1" value="2"></div>
+<div class="control"><label for="m">Strategy</label><select id="m"><option value="head">Feature extraction (new head only)</option><option value="last">Fine-tune last stage + head</option><option value="all">Train everything from scratch</option></select></div>
+</div></div>
+<p class="readout" id="out"></p>
+<h2>What to notice</h2>
+<p class="finding">ResNet-18, 512 features → 2 classes: 1,026 trainable parameters, about two images per parameter with 2,000 images. From scratch: 11.2 million parameters, over 5,000 per image (Math Box 51.1).</p>
+<p class="note">Fine-tuning a whole stage has many parameters but they start from sensible values, and a small learning rate with early stopping keeps them near. With large target datasets the advantage of pretraining shrinks, and training from scratch can catch up [WELL SUPPORTED] (Chapters 20, 43, 51).</p>
+<script>
+const $ = id => document.getElementById(id);
+function draw() {
+  const n = +$("n").value, k = +$("k").value, m = $("m").value; $("nV").textContent = n.toLocaleString(); $("kV").textContent = k;
+  const head = 512 * k + k, p = m === "head" ? head : m === "last" ? 8.4e6 + head : 11.2e6;
+  $("out").textContent = `head: 512 × ${k} + ${k} = ${head.toLocaleString()} parameters\ntrainable with this strategy: ${Math.round(p).toLocaleString()}\nimages per trainable parameter: ${(n / p).toPrecision(2)}   (parameters per image: ${(p / n).toPrecision(3)})\n${m === "all" ? "Starting from random values: high variance, memorization likely unless data are plentiful." : m === "last" ? "Many parameters, but starting from pretrained values; keep the learning rate small." : "Only the head is fitted; the pretrained features are reused unchanged."}`;
+}
+["n", "k"].forEach(i => $(i).addEventListener("input", draw)); $("m").addEventListener("change", draw); draw();
+</script></main></body></html>
